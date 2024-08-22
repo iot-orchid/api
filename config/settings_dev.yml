@@ -1,0 +1,3 @@
+uri:
+  DB: postgres://localhost:5432/myapp_development
+  AMPQ: amqp://localhost:5672
