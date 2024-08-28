@@ -12,8 +12,23 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Cluster::Table)
                     .if_not_exists()
-                    .col(pk_auto(Cluster::Id))
-                    .col(string(Cluster::Title))
+                    .col(
+                        pk_auto(Cluster::Id)
+                            .not_null()
+                            .unique_key()
+                            .auto_increment(),
+                    )
+                    .col(string(Cluster::Name).not_null())
+                    .col(
+                        timestamp_with_time_zone(Cluster::CreatedAt)
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        timestamp_with_time_zone(Cluster::UpdatedAt)
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
             )
             .await
@@ -28,8 +43,10 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(DeriveIden)]
-enum Cluster {
+pub enum Cluster {
     Table,
     Id,
-    Title,
+    Name,
+    CreatedAt,
+    UpdatedAt,
 }

@@ -1,1 +1,3 @@
 /target
+.env
+api.code-workspace

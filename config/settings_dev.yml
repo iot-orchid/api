@@ -1,3 +1,5 @@
-uri:
-  DB: postgres://localhost:5432/myapp_development
-  AMPQ: amqp://localhost:5672
+
+DB: postgres://postgres:mysecretpassword@localhost/iot-orchid
+AMPQ: amqp://localhost:5672
+PORT: 3001
+ADDRESS: 0.0.0.0

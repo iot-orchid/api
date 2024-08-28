@@ -1,5 +1,7 @@
 use sea_orm_migration::{prelude::*, schema::*};
 
+use crate::m20240825_042151_create_clusters_table::Cluster;
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -13,8 +15,16 @@ impl MigrationTrait for Migration {
                     .table(Microdevice::Table)
                     .if_not_exists()
                     .col(pk_auto(Microdevice::Id))
-                    .col(string(Microdevice::Title))
-                    .col(string(Microdevice::Text))
+                    .col(integer(Microdevice::ClusterID).not_null())
+                    .col(string(Microdevice::Name))
+                    .col(string(Microdevice::Description))
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_microdevice_cluster_id")
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .from(Microdevice::Table, Microdevice::ClusterID)
+                            .to(Cluster::Table, Cluster::Id),
+                    )
                     .to_owned(),
             )
             .await
@@ -29,9 +39,10 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(DeriveIden)]
-enum Microdevice {
+pub enum Microdevice {
     Table,
     Id,
-    Title,
-    Text,
+    ClusterID,
+    Name,
+    Description,
 }
