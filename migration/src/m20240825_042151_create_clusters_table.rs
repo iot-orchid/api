@@ -12,12 +12,7 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Cluster::Table)
                     .if_not_exists()
-                    .col(
-                        pk_auto(Cluster::Id)
-                            .not_null()
-                            .unique_key()
-                            .auto_increment(),
-                    )
+                    .col(ColumnDef::new(Cluster::Id).uuid().not_null().primary_key())
                     .col(string(Cluster::Name).not_null())
                     .col(
                         timestamp_with_time_zone(Cluster::CreatedAt)
