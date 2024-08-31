@@ -2,3 +2,5 @@
 
 pub use super::cluster::Entity as Cluster;
 pub use super::microdevice::Entity as Microdevice;
+pub use super::user::Entity as User;
+pub use super::user_cluster::Entity as UserCluster;

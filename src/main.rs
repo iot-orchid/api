@@ -1,32 +1,25 @@
 use axum::extract::State;
-#[allow(unused_imports)]
+use axum::http::status::StatusCode as AxumStatusCode;
 use axum::{
     extract::{Json as ExtractJson, Path, Query},
     routing::{delete, get, post},
     Json, Router,
 };
-use migration::Mode;
-use sea_orm::{
-    sea_query::table, DatabaseConnection, DbBackend, EntityTrait, QueryFilter, QueryTrait,
-};
-use serde::{Deserialize, Serialize};
-
-use config::{Config, File, FileFormat};
-use serde_json::json;
-use std::{collections::HashMap, ptr::null, sync::Arc};
-
-use entity::microdevice::Entity as Microdevice;
-use entity::{cluster, microdevice};
-
 use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+use bcrypt;
+use config::{Config, File, FileFormat};
+use entity::{cluster, microdevice, user, user_cluster};
+use jsonwebtoken::{self as jwt, EncodingKey};
+use sea_orm::entity::prelude::*;
+use sea_orm::sqlx::types::chrono;
+use sea_orm::ActiveValue::Set;
+use sea_orm::Database;
+use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, QueryTrait};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
 use uuid;
-
-use sea_orm::entity::prelude::*;
-
-#[allow(unused_imports)]
-use sea_orm::{Database, DbErr};
 
 #[derive(Debug, Deserialize, ToSchema)]
 enum DeviceStatus {
@@ -64,22 +57,66 @@ impl Serialize for DeviceStatus {
 #[allow(dead_code)]
 #[derive(Deserialize, ToSchema)]
 struct DeviceQuery {
-    id: Option<String>,
+    id: Option<i32>,
     status: Option<DeviceStatus>,
 }
 
 #[allow(dead_code)]
 #[derive(Deserialize, Debug, ToSchema)]
 struct DeviceCreate {
-    id: String,
     name: String,
     description: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 struct ErrorResponse {
     kind: String,
     message: String,
+}
+
+impl From<sea_orm::DbErr> for ErrorResponse {
+    fn from(e: sea_orm::DbErr) -> Self {
+        ErrorResponse {
+            kind: "Database Error".to_string(),
+            message: e.to_string(),
+        }
+    }
+}
+
+impl From<base64::DecodeError> for ErrorResponse {
+    fn from(e: base64::DecodeError) -> Self {
+        ErrorResponse {
+            kind: "Decode Error".to_string(),
+            message: e.to_string(),
+        }
+    }
+}
+
+impl From<uuid::Error> for ErrorResponse {
+    fn from(e: uuid::Error) -> Self {
+        ErrorResponse {
+            kind: "UUID Error".to_string(),
+            message: e.to_string(),
+        }
+    }
+}
+
+impl From<bcrypt::BcryptError> for ErrorResponse {
+    fn from(e: bcrypt::BcryptError) -> Self {
+        ErrorResponse {
+            kind: "Authentication Error".to_string(),
+            message: e.to_string(),
+        }
+    }
+}
+
+impl From<jwt::errors::Error> for ErrorResponse {
+    fn from(e: jwt::errors::Error) -> Self {
+        ErrorResponse {
+            kind: "JWT Error".to_string(),
+            message: e.to_string(),
+        }
+    }
 }
 
 #[utoipa::path(
@@ -108,16 +145,15 @@ async fn get_devices(
 
     let res = microdevice::Entity::find()
         .filter(microdevice::Column::ClusterId.eq(uuid))
-        .apply_if(query.id, |q, v| {
-            let microdevice_id: i32 = v.parse().unwrap();
-            q.filter(microdevice::Column::Id.eq(microdevice_id))
-        })
+        .apply_if(query.id, |q, v| q.filter(microdevice::Column::Id.eq(v)))
         .into_json()
         .all(&state.db)
-        .await
-        .unwrap();
+        .await;
 
-    Ok((axum::http::StatusCode::OK, Json(res)))
+    match res {
+        Err(e) => return Err((axum::http::StatusCode::BAD_REQUEST, Json(e.into()))),
+        Ok(v) => Ok((axum::http::StatusCode::OK, Json(v))),
+    }
 }
 
 #[utoipa::path(
@@ -131,7 +167,7 @@ async fn get_devices(
     ),
     responses(
         (status = 200, body = [String]),
-        (status = 404),
+        (status = 404, body = [ErrorResponse]),
     ),
 )]
 async fn delete_device(
@@ -143,24 +179,14 @@ async fn delete_device(
 
     match (microdevice::Entity::delete_many()
         .filter(microdevice::Column::ClusterId.eq(uuid))
-        .apply_if(query.id, |q, v| {
-            q.filter(microdevice::Column::Id.eq(v.parse::<i32>().unwrap()))
-        })
+        .apply_if(query.id, |q, v| q.filter(microdevice::Column::Id.eq(v)))
         .exec(&state.db))
     .await
     {
-        Ok(res) => Ok((AxumStatusCode::OK, "ok".to_string())),
-        Err(e) => Err((
-            AxumStatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                kind: "DB Error".to_string(),
-                message: e.to_string(),
-            }),
-        )),
+        Ok(_) => Ok((AxumStatusCode::OK, "ok".to_string())),
+        Err(e) => Err((AxumStatusCode::BAD_REQUEST, Json(e.into()))),
     }
 }
-
-use sea_orm::ActiveValue::Set;
 
 #[utoipa::path(
     post,
@@ -168,43 +194,30 @@ use sea_orm::ActiveValue::Set;
     tag = "Microdevices",
     responses(
         (status = 200, body = [DeviceCreate]),
-        (status = 404),
+        (status = 404, body = [ErrorResponse]),
     ),
 )]
 async fn create_device(
     State(state): State<AppState>,
     Path(cluster_id): Path<String>,
-    Query(_query): Query<DeviceQuery>,
     ExtractJson(data): Json<DeviceCreate>,
-) -> String {
-    let decoded_cluster_id = match URL_SAFE.decode(&cluster_id) {
-        Ok(v) => v,
-        Err(_) => return "Failed to decode base64 uuid from path".to_string(),
-    };
+) -> Result<(AxumStatusCode, String), (AxumStatusCode, Json<ErrorResponse>)> {
+    let uuid = decode_uuid(cluster_id)?;
 
-    if decoded_cluster_id.len() != 16 {
-        return "Malformed cluster ID".to_string();
-    }
-
-    let uuid = match Uuid::from_slice(&decoded_cluster_id) {
-        Ok(uuid) => uuid,
-        Err(_) => return "Could not convert path to uuid".to_string(),
-    };
-
-    let res = match (microdevice::ActiveModel {
-        id: Set(data.id.parse().unwrap()),
+    let _res = match (microdevice::ActiveModel {
         cluster_id: Set(uuid),
         name: Set(data.name),
         description: Set(data.description),
+        ..Default::default()
     }
     .insert(&state.db))
     .await
     {
         Ok(v) => v,
-        Err(_) => return "DATABASE ERROR".to_string(),
+        Err(e) => return Err((AxumStatusCode::BAD_REQUEST, Json(e.into()))),
     };
 
-    res.cluster_id.into()
+    Ok((AxumStatusCode::OK, "ok".to_string()))
 }
 
 #[derive(Deserialize, Serialize, ToSchema)]
@@ -220,7 +233,7 @@ struct ClusterCreate {
     tag = "Clusters",
     responses(
         (status = 200, body = [ClusterCreate]),
-        (status = 404),
+        (status = 404, body = [ErrorResponse]),
     ),
 )]
 async fn create_cluster(
@@ -245,14 +258,15 @@ async fn create_cluster(
     .await
     {
         Ok(_) => Ok((axum::http::StatusCode::OK, Json(data))),
-        Err(_) => Err((
-            axum::http::StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                kind: "test".to_string(),
-                message: "test".to_string(),
-            }),
-        )),
+        Err(e) => Err((axum::http::StatusCode::BAD_REQUEST, Json(e.into()))),
     }
+}
+
+#[derive(Serialize, ToSchema)]
+struct ListClusterElement {
+    uuid: String,
+    name: String,
+    encoded_id: Option<String>,
 }
 
 #[utoipa::path(
@@ -260,37 +274,129 @@ async fn create_cluster(
     path = "/clusters",
     tag = "Clusters",
     responses(
-        (status = 200, body = [String]),
-        (status = 404),
+        (status = 200, body = [ListClusterElement]),
+        (status = 404, body = [ErrorResponse]),
     ),
 )]
 async fn list_clusters(
     State(state): State<AppState>,
-) -> Result<
-    (axum::http::StatusCode, Json<Vec<serde_json::Value>>),
-    (axum::http::StatusCode, Json<ErrorResponse>),
-> {
-    match (cluster::Entity::find().all(&state.db)).await {
-        Ok(v) => {
-            for ele in v {
-                println!("{}", URL_SAFE.encode(&ele.id))
-            }
+) -> Result<(AxumStatusCode, Json<Vec<ListClusterElement>>), (AxumStatusCode, Json<ErrorResponse>)>
+{
+    let res = match (cluster::Entity::find().all(&state.db)).await {
+        Ok(v) => v,
+        Err(e) => return Err((AxumStatusCode::BAD_REQUEST, Json(e.into()))),
+    };
 
-            Ok((
-                axum::http::StatusCode::OK,
-                Json(vec![json!({
-                    "test":"test"
-                })]),
-            ))
+    let elems = res
+        .iter()
+        .map(|c| ListClusterElement {
+            uuid: c.id.to_string(),
+            name: c.name.clone(),
+            encoded_id: Some(URL_SAFE.encode(&c.id.as_bytes())),
+        })
+        .collect();
+
+    Ok((AxumStatusCode::OK, Json(elems)))
+}
+
+#[derive(Deserialize, ToSchema)]
+struct UserCredentials {
+    #[schema(example = "foo")]
+    username: String,
+    #[schema(example = "bar")]
+    password: String,
+}
+
+#[derive(Serialize, ToSchema)]
+struct LoginSuccess {
+    access_token: String,
+    refresh_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Claims {
+    sub: String,
+    exp: usize,
+    iat: usize,
+}
+
+#[utoipa::path(
+    post,
+    path = "/login",
+    tag = "Authentication",
+    responses(
+        (status = 200, body = [LoginSuccess]),
+        (status = 404, body = [ErrorResponse]),
+    ),
+)]
+async fn handle_login(
+    State(state): State<AppState>,
+    ExtractJson(payload): Json<UserCredentials>,
+) -> Result<(AxumStatusCode, Json<LoginSuccess>), (AxumStatusCode, Json<ErrorResponse>)> {
+    let user = match (user::Entity::find()
+        .filter(user::Column::Username.eq(&payload.username))
+        .one(&state.db))
+    .await
+    {
+        Ok(v) => {
+            if let Some(u) = v {
+                u
+            } else {
+                return Err((
+                    AxumStatusCode::UNAUTHORIZED,
+                    Json(ErrorResponse {
+                        kind: "Authentication Error".to_string(),
+                        message: "Invalid username or password".to_string(),
+                    }),
+                ));
+            }
         }
-        Err(_) => Err((
-            axum::http::StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                kind: "database error".to_string(),
-                message: "test".to_string(),
-            }),
-        )),
+        Err(e) => return Err((AxumStatusCode::INTERNAL_SERVER_ERROR, Json(e.into()))),
+    };
+
+    match bcrypt::verify(payload.password, &user.password_hash) {
+        Ok(_) => (),
+        Err(e) => return Err((AxumStatusCode::UNAUTHORIZED, Json(e.into()))),
     }
+
+    let access_token_claims = Claims {
+        sub: user.username.clone(),
+        exp: (chrono::Utc::now() + std::time::Duration::from_secs(60 * 15)).timestamp() as usize,
+        iat: chrono::Utc::now().timestamp() as usize,
+    };
+
+    let refresh_token_claims = Claims {
+        sub: user.username.clone(),
+        exp: (chrono::Utc::now() + std::time::Duration::from_secs(60 * 60 * 24)).timestamp()
+            as usize,
+        iat: chrono::Utc::now().timestamp() as usize,
+    };
+
+    let access_token = match jwt::encode(
+        &jwt::Header::default(),
+        &access_token_claims,
+        &EncodingKey::from_secret("secret".as_bytes()),
+    ) {
+        Ok(token) => token,
+        Err(e) => return Err((AxumStatusCode::INTERNAL_SERVER_ERROR, Json(e.into()))),
+    };
+
+    let refresh_token = match jwt::encode(
+        &jwt::Header::default(),
+        &refresh_token_claims,
+        &EncodingKey::from_secret("secret".as_bytes()),
+    ) {
+        Ok(token) => token,
+        Err(e) => return Err((AxumStatusCode::INTERNAL_SERVER_ERROR, Json(e.into()))),
+    };
+
+    Ok((
+        AxumStatusCode::OK,
+        Json(LoginSuccess {
+            access_token: access_token,
+            refresh_token: refresh_token,
+        }),
+    ))
 }
 
 #[derive(Debug)]
@@ -319,20 +425,10 @@ fn get_value<'a>(key: &'static str, map: &'a HashMap<String, config::Value>) -> 
     }
 }
 
-use axum::http::status::StatusCode as AxumStatusCode;
-
 fn decode_uuid(s: String) -> Result<uuid::Uuid, (AxumStatusCode, Json<ErrorResponse>)> {
     let decoded_str = match URL_SAFE.decode(s) {
         Ok(bytes) => bytes,
-        Err(_) => {
-            return Err((
-                AxumStatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    kind: "Decode Error".to_string(),
-                    message: "Failed to decode supplied string".to_string(),
-                }),
-            ))
-        }
+        Err(e) => return Err((AxumStatusCode::BAD_REQUEST, Json(e.into()))),
     };
 
     if decoded_str.len() != 16 {
@@ -347,15 +443,7 @@ fn decode_uuid(s: String) -> Result<uuid::Uuid, (AxumStatusCode, Json<ErrorRespo
 
     match uuid::Uuid::from_slice(&decoded_str) {
         Ok(uuid) => Ok(uuid),
-        Err(_) => {
-            return Err((
-                AxumStatusCode::BAD_REQUEST,
-                Json(ErrorResponse {
-                    kind: "Decode Error".to_string(),
-                    message: "Failed to decode supplied string".to_string(),
-                }),
-            ))
-        }
+        Err(e) => return Err((AxumStatusCode::BAD_REQUEST, Json(e.into()))),
     }
 }
 
@@ -371,7 +459,8 @@ struct AppState {
         list_clusters,
         get_devices,
         create_device,
-        delete_device
+        delete_device,
+        handle_login,
     ),
     components(
         schemas (
@@ -379,11 +468,16 @@ struct AppState {
             DeviceCreate,
             DeviceQuery,
             DeviceStatus,
+            ListClusterElement,
+            ErrorResponse,
+            UserCredentials,
+            LoginSuccess,
         )
     ),
     tags(
         (name = "Clusters", description = "Cluster operations"),
-        (name = "Microdevices", description = "Microdevice operations")
+        (name = "Microdevices", description = "Microdevice operations"),
+        (name = "Authentication", description = "Authentication operations"),
     ),
     servers(
         (url = "/api/v1", description = "API v1 base path")
@@ -431,6 +525,7 @@ async fn main() {
         .route("/clusters/:clusterId/devices", get(get_devices))
         .route("/clusters/:clusterId/devices", post(create_device))
         .route("/clusters/:clusterId/devices", delete(delete_device))
+        .route("/login", post(handle_login))
         .with_state(state);
 
     let app = Router::new()

@@ -4,3 +4,5 @@ pub mod prelude;
 
 pub mod cluster;
 pub mod microdevice;
+pub mod user;
+pub mod user_cluster;

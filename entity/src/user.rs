@@ -3,27 +3,19 @@
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
-#[sea_orm(table_name = "cluster")]
+#[sea_orm(table_name = "user")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    pub name: String,
-    pub created_at: DateTimeWithTimeZone,
-    pub updated_at: DateTimeWithTimeZone,
+    #[sea_orm(unique)]
+    pub username: String,
+    pub password_hash: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::microdevice::Entity")]
-    Microdevice,
     #[sea_orm(has_many = "super::user_cluster::Entity")]
     UserCluster,
-}
-
-impl Related<super::microdevice::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Microdevice.def()
-    }
 }
 
 impl Related<super::user_cluster::Entity> for Entity {
@@ -32,12 +24,12 @@ impl Related<super::user_cluster::Entity> for Entity {
     }
 }
 
-impl Related<super::user::Entity> for Entity {
+impl Related<super::cluster::Entity> for Entity {
     fn to() -> RelationDef {
-        super::user_cluster::Relation::User.def()
+        super::user_cluster::Relation::Cluster.def()
     }
     fn via() -> Option<RelationDef> {
-        Some(super::user_cluster::Relation::Cluster.def().rev())
+        Some(super::user_cluster::Relation::User.def().rev())
     }
 }
 
