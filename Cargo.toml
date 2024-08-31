@@ -27,3 +27,4 @@ uuid = { version = "1.10.0", features = ["v4", "fast-rng"] }
 base64 = "0.22.1"
 jsonwebtoken = "9.3.0"
 bcrypt = "0.15.1"
+chrono = "0.4.38"

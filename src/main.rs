@@ -355,7 +355,16 @@ async fn handle_login(
     };
 
     match bcrypt::verify(payload.password, &user.password_hash) {
-        Ok(_) => (),
+        Ok(password_matches) if password_matches => (),
+        Ok(_) => {
+            return Err((
+                AxumStatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    kind: "Authentication Error".to_string(),
+                    message: "Invalid username or password".to_string(),
+                }),
+            ))
+        }
         Err(e) => return Err((AxumStatusCode::UNAUTHORIZED, Json(e.into()))),
     }
 
