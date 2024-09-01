@@ -16,7 +16,7 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(pk_auto(Microdevice::Id).unique_key().not_null())
                     .col(uuid(Microdevice::ClusterID).not_null())
-                    .col(string(Microdevice::Name).unique_key())
+                    .col(string(Microdevice::Name).not_null())
                     .col(string(Microdevice::Description))
                     .foreign_key(
                         ForeignKey::create()

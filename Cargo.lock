@@ -150,6 +150,7 @@ dependencies = [
  "tokio",
  "toml",
  "tower 0.5.0",
+ "tower-service",
  "utoipa",
  "utoipa-swagger-ui",
  "uuid",
