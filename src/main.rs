@@ -51,7 +51,7 @@ fn get_value<'a>(key: &'static str, map: &'a HashMap<String, config::Value>) -> 
     components(
         schemas (
             web::cluster::ClusterCreate,
-            web::cluster::ListClusterElement,
+            web::cluster::ClusterRecord,
             web::microdevice::DeviceCreate,
             web::microdevice::DeviceQuery,
             web::microdevice::DeviceStatus,

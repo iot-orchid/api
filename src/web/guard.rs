@@ -2,13 +2,6 @@ use crate::context::Ctx;
 use jsonwebtoken::{self as jwt, DecodingKey};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Claims {
-    sub: String,
-    exp: usize,
-    iat: usize,
-}
-
 pub async fn jwt_guard(
     mut request: axum::extract::Request,
     next: axum::middleware::Next,
@@ -61,4 +54,11 @@ pub async fn jwt_guard(
     }
 
     next.run(request).await
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Claims {
+    sub: String,
+    exp: usize,
+    iat: usize,
 }

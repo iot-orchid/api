@@ -1,3 +1,4 @@
+use super::error::{Error, Result};
 use crate::model::AppState;
 use axum::extract::{Json as ExtractJson, State};
 use axum::Json;
@@ -5,8 +6,6 @@ use entity::user;
 use sea_orm::prelude::*;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-
-use crate::web::error::{Error, Result};
 
 #[derive(Deserialize, ToSchema)]
 pub struct UserCredentials {

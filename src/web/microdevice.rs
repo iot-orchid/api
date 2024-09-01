@@ -1,3 +1,4 @@
+use super::error::{Error, Result};
 use crate::context::Ctx;
 use crate::model::AppState;
 use axum::{
@@ -10,8 +11,6 @@ use sea_orm::{entity::prelude::*, QueryTrait, Set};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use utoipa::ToSchema;
-
-use crate::web::error::{Error, Result};
 
 #[utoipa::path(
     get,
