@@ -1,7 +1,7 @@
 use sea_orm::DatabaseConnection;
 
 #[derive(Clone)]
-pub struct AppState {
+pub struct ModelManager {
     pub(crate) db: DatabaseConnection,
 }
 
@@ -11,5 +11,5 @@ pub struct AppState {
 //             db: DatabaseConnection::new(),
 //         }
 //     }
-    
+
 // }

@@ -1,6 +1,6 @@
 use super::error::{Error, Result};
 use crate::auth;
-use crate::model::AppState;
+use crate::model::ModelManager;
 use axum::extract::{Json as ExtractJson, State};
 use axum::Json;
 use entity::user;
@@ -19,7 +19,7 @@ use utoipa::ToSchema;
     ),
 )]
 pub async fn handler(
-    State(state): State<AppState>,
+    State(state): State<ModelManager>,
     ExtractJson(payload): Json<UserCredentials>,
 ) -> Result<Json<LoginSuccess>> {
     let user = match user::Entity::find()

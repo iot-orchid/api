@@ -8,7 +8,7 @@ mod config;
 mod context;
 mod model;
 mod web;
-use model::AppState;
+use model::ModelManager;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -58,7 +58,7 @@ impl Modify for SecurityAddon {
 
 #[tokio::main]
 async fn main() {
-    let db = match Database::connect(config::CONFIG.db.clone()).await {
+    let db = match Database::connect(config::CONFIG.db_url()).await {
         Ok(db) => {
             println!("Connected to database");
             db
@@ -69,7 +69,7 @@ async fn main() {
         }
     };
 
-    let model_manager = AppState { db };
+    let model_manager = ModelManager { db };
 
     let app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))

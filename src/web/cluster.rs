@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use super::error::{Error, Result};
 use crate::context::Ctx;
-use crate::model::AppState;
+use crate::model::ModelManager;
 #[allow(unused_imports)]
 use axum::{
     extract::{Extension, Json as ExtractJson, Query, State},
@@ -30,7 +30,7 @@ use utoipa::ToSchema;
     ),
 )]
 pub async fn create(
-    State(state): State<AppState>,
+    State(state): State<ModelManager>,
     Extension(ctx): Extension<Ctx>,
     ExtractJson(data): Json<ClusterCreate>,
 ) -> Result<Json<ClusterRecord>> {
@@ -72,7 +72,7 @@ pub async fn create(
     ),
 )]
 pub async fn get(
-    State(state): State<AppState>,
+    State(state): State<ModelManager>,
     Extension(ctx): Extension<Ctx>,
     Query(params): Query<ClusterQuery>,
 ) -> Result<Json<Vec<ClusterRecord>>> {

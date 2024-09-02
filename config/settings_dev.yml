@@ -1,5 +1,21 @@
-
-DB: postgres://postgres:mysecretpassword@localhost/iot-orchid
-AMPQ: amqp://localhost:5672
-PORT: 3001
-ADDRESS: 0.0.0.0
+database:
+  protocol: postgres
+  user: postgres
+  password: mysecretpassword
+  host: localhost
+  port: 5432
+  database: iot-orchid
+api:
+  debug:
+    host: localhost
+    port: 3001
+  production:
+    host: 0.0.0.0
+    port: 3001
+jwt:
+  secret: mysecret
+  expires_in: 86400
+  issuer: iot-orchid
+ampq: amqp://localhost:5672
+port: 3001
+address: 0.0.0.0

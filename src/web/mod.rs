@@ -1,4 +1,4 @@
-use crate::model::AppState;
+use crate::model::ModelManager;
 pub mod cluster;
 pub mod error;
 mod guard;
@@ -10,7 +10,7 @@ pub mod user;
 use axum::routing::{delete, get, post, put};
 use axum::Router;
 
-pub fn app(model_manager: AppState) -> Router {
+pub fn app(model_manager: ModelManager) -> Router {
     Router::new()
         .route("/clusters", post(cluster::create))
         .route("/clusters", get(cluster::get))

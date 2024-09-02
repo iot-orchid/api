@@ -1,6 +1,6 @@
 use super::error::{Error, Result};
 use crate::context::Ctx;
-use crate::model::AppState;
+use crate::model::ModelManager;
 use axum::{
     extract::{Extension, Json as ExtractJson, Path, Query, State},
     response::Json,
@@ -33,7 +33,7 @@ use utoipa::ToSchema;
     ),
 )]
 pub async fn get_devices(
-    State(state): State<AppState>,
+    State(state): State<ModelManager>,
     Extension(ctx): Extension<Ctx>,
     Path(cluster_id): Path<String>,
     Query(query): Query<DeviceQuery>,
@@ -73,7 +73,7 @@ pub async fn get_devices(
     ),
 )]
 pub async fn delete_device(
-    State(state): State<AppState>,
+    State(state): State<ModelManager>,
     Extension(ctx): Extension<Ctx>,
     Path(cluster_id): Path<String>,
     Query(_query): Query<DeviceQuery>,
@@ -92,7 +92,7 @@ pub async fn delete_device(
     todo!()
 }
 
-async fn check_membership<S>(user_id: S, cluster_id: S, state: &AppState) -> Result<(Uuid, Uuid)>
+async fn check_membership<S>(user_id: S, cluster_id: S, state: &ModelManager) -> Result<(Uuid, Uuid)>
 where
     S: Into<String>,
 {
@@ -128,7 +128,7 @@ where
     ),
 )]
 pub async fn create_device(
-    State(state): State<AppState>,
+    State(state): State<ModelManager>,
     Extension(ctx): Extension<Ctx>,
     Path(cluster_id): Path<String>,
     ExtractJson(data): Json<DeviceCreate>,
