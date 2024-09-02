@@ -1,7 +1,5 @@
-use crate::config;
+use crate::auth;
 use crate::context::Ctx;
-use jsonwebtoken::{self as jwt, DecodingKey};
-use serde::{Deserialize, Serialize};
 
 pub async fn jwt_guard(
     mut request: axum::extract::Request,
@@ -27,10 +25,7 @@ pub async fn jwt_guard(
         }
     };
 
-    let jwt_secret = config::CONFIG.jwt_secret.clone();
-    let key = DecodingKey::from_secret(&jwt_secret.as_bytes());
-
-    let token = match jwt::decode::<Claims>(&token, &key, &jwt::Validation::default()) {
+    let claims = match auth::jwt_auth::decode(token) {
         Ok(token) => token,
         Err(_) => {
             return axum::http::Response::builder()
@@ -40,9 +35,7 @@ pub async fn jwt_guard(
         }
     };
 
-    let ctx = Ctx {
-        uuid: token.claims.sub.clone(),
-    };
+    let ctx = Ctx { uuid: claims.sub };
 
     match request.extensions_mut().insert(ctx) {
         Some(_) => {
@@ -55,11 +48,4 @@ pub async fn jwt_guard(
     }
 
     next.run(request).await
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Claims {
-    sub: String,
-    exp: usize,
-    iat: usize,
 }

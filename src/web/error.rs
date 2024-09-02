@@ -6,7 +6,7 @@ use base64::DecodeError;
 use bcrypt::BcryptError;
 use uuid::Error as UuidError;
 pub type Result<T> = std::result::Result<T, Error>;
-
+use crate::auth;
 #[derive(Debug)]
 pub enum Error {
     #[allow(dead_code)]
@@ -20,6 +20,9 @@ pub enum Error {
     UsernameNotFound,
     #[allow(dead_code)]
     BcryptError(BcryptError),
+
+    #[allow(dead_code)]
+    JwtError(auth::error::Error),
 }
 
 impl From<UuidError> for Error {
@@ -46,6 +49,12 @@ impl From<BcryptError> for Error {
     }
 }
 
+impl From<auth::error::Error> for Error {
+    fn from(e: auth::error::Error) -> Self {
+        Error::JwtError(e)
+    }
+}
+
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         match self {
@@ -56,6 +65,7 @@ impl IntoResponse for Error {
             Error::IncorrectPassword => StatusCode::UNAUTHORIZED.into_response(),
             Error::UsernameNotFound => StatusCode::UNAUTHORIZED.into_response(),
             Error::BcryptError(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+            Error::JwtError(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
         }
     }
 }
