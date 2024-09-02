@@ -1,41 +1,14 @@
 use axum::Router;
-use config::{Config, File, FileFormat};
 use sea_orm::Database;
-use std::collections::HashMap;
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::{Modify, OpenApi};
 use utoipa_swagger_ui::SwaggerUi;
 mod auth;
+mod config;
 mod context;
 mod model;
 mod web;
 use model::AppState;
-
-#[derive(Debug)]
-struct AppConfig {
-    db: String,
-    _ampq: String,
-    port: String,
-    address: String,
-}
-
-impl Default for AppConfig {
-    fn default() -> Self {
-        AppConfig {
-            db: "postgres://sea:sea@localhost:5432/sea".to_string(),
-            _ampq: "amqp://guest:guest@localhost:5672/%2f".to_string(),
-            port: "3000".to_string(),
-            address: "localhost".to_string(),
-        }
-    }
-}
-
-fn get_value<'a>(key: &'static str, map: &'a HashMap<String, config::Value>) -> &'a config::Value {
-    match map.get(key) {
-        Some(val) => val,
-        None => panic!("{key} is not defined in the config YAML"),
-    }
-}
 
 #[derive(OpenApi)]
 #[openapi(
@@ -85,26 +58,7 @@ impl Modify for SecurityAddon {
 
 #[tokio::main]
 async fn main() {
-    let builder = Config::builder().add_source(File::new("config/settings_dev", FileFormat::Yaml));
-
-    let cfg = match builder.build() {
-        Ok(config) => match config.cache.into_table().as_ref() {
-            Ok(tbl) => AppConfig {
-                db: get_value("db", tbl).to_string(),
-                _ampq: get_value("ampq", tbl).to_string(),
-                port: get_value("port", tbl).to_string(),
-                address: get_value("address", tbl).to_string(),
-            },
-            Err(err) => {
-                panic!("failed to read configuration file\n{:?}", err)
-            }
-        },
-        Err(err) => {
-            panic!("failed to read configuration file\n{:?}", err)
-        }
-    };
-
-    let db = match Database::connect(cfg.db).await {
+    let db = match Database::connect(config::CONFIG.db.clone()).await {
         Ok(db) => {
             println!("Connected to database");
             db
@@ -121,8 +75,12 @@ async fn main() {
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .nest("/api/v1", web::app(model_manager));
 
-    if let Ok(listener) =
-        tokio::net::TcpListener::bind(format!("{}:{}", cfg.address, cfg.port)).await
+    if let Ok(listener) = tokio::net::TcpListener::bind(format!(
+        "{}:{}",
+        config::CONFIG.address,
+        config::CONFIG.port
+    ))
+    .await
     {
         axum::serve(listener, app).await.unwrap();
     } else {

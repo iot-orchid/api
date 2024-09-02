@@ -1,3 +1,4 @@
+use crate::config;
 use crate::context::Ctx;
 use jsonwebtoken::{self as jwt, DecodingKey};
 use serde::{Deserialize, Serialize};
@@ -26,8 +27,8 @@ pub async fn jwt_guard(
         }
     };
 
-    let key = "secret".to_string();
-    let key = DecodingKey::from_secret(key.as_bytes());
+    let jwt_secret = config::CONFIG.jwt_secret.clone();
+    let key = DecodingKey::from_secret(&jwt_secret.as_bytes());
 
     let token = match jwt::decode::<Claims>(&token, &key, &jwt::Validation::default()) {
         Ok(token) => token,
