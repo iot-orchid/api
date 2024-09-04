@@ -1,15 +1,32 @@
-use super::error::Error;
+use super::error::{Error, Result};
 use crate::auth;
 use crate::model::ModelManager;
 use axum::extract::State;
 use axum::Json;
-use axum_extra::extract::cookie::Cookie;
 use axum_extra::extract::CookieJar;
 use entity::user;
 use sea_orm::prelude::*;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+use auth::jwt_auth::{ACCESS_TOKEN_COOKIE_NAME, REFRESH_TOKEN_COOKIE_NAME};
+/// Handles the login request.
+///
+/// This function is responsible for authenticating the user by checking the provided credentials.
+/// It receives the `ModelManager` state, `CookieJar`, and `Json<UserCredentials>` as input.
+/// It returns a `Result` containing the updated `CookieJar` or an `Error` if authentication fails.
+///
+/// # Examples
+///
+/// ```rust
+/// use axum::handler::post;
+/// use axum::Router;
+/// use iot_orchid::api::web::session::{login, logout};
+///
+/// let app = Router::new()
+///     .route("/login", post(login))
+///     .route("/logout", post(logout));
+/// ```
 #[utoipa::path(
     post,
     path = "/login",
@@ -24,7 +41,7 @@ pub async fn login(
     State(state): State<ModelManager>,
     jar: CookieJar,
     Json(payload): Json<UserCredentials>,
-) -> Result<CookieJar, Error> {
+) -> Result<CookieJar> {
     println!("Login request received");
 
     let user = user::Entity::find()
@@ -41,24 +58,29 @@ pub async fn login(
         return Err(Error::IncorrectPassword);
     }
 
-    let access_token = auth::jwt_auth::gen_access_token(user.id.to_string())?;
-    let refresh_token = auth::jwt_auth::gen_refresh_token(user.id.to_string())?;
+    let access_cookie = auth::jwt_auth::gen_access_cookie(user.id.to_string())?;
+    let refresh_token = auth::jwt_auth::gen_refresh_cookie(user.id.to_string())?;
 
-    println!("access_token: {}", access_token);
-    println!("refresh_token: {}", refresh_token);
-
-    let cookies = [
-        Cookie::build(Cookie::new("iotorchid_access_jwt", access_token))
-            .http_only(true)
-            .build(),
-        Cookie::build(Cookie::new("iotorchid_refresh_token", refresh_token))
-            .http_only(true)
-            .build(),
-    ];
-
-    Ok(jar.add(cookies[0].clone()).add(cookies[1].clone()))
+    Ok(jar.add(access_cookie).add(refresh_token))
 }
 
+/// Handles the logout request.
+///
+/// This function is responsible for removing the access and refresh tokens from the `CookieJar`.
+/// It receives the `CookieJar` as input and returns a `Result` containing the updated `CookieJar`
+/// or an `Error` if the expected cookies are not found.
+///
+/// # Examples
+///
+/// ```rust
+/// use axum::handler::post;
+/// use axum::Router;
+/// use iot_orchid::api::web::session::{login, logout};
+///
+/// let app = Router::new()
+///     .route("/login", post(login))
+///     .route("/logout", post(logout));
+/// ```
 #[utoipa::path(
     post,
     path = "/logout",
@@ -69,13 +91,13 @@ pub async fn login(
         (status = 400),
     ),
 )]
-pub async fn logout(jar: CookieJar) -> Result<CookieJar, Error> {
-    let access_cookie = match jar.get("iotorchid_access_jwt") {
+pub async fn logout(jar: CookieJar) -> Result<CookieJar> {
+    let access_cookie = match jar.get(ACCESS_TOKEN_COOKIE_NAME) {
         Some(cookie) => cookie.clone(),
         None => return Err(Error::ExpectedCookiesNotFound),
     };
 
-    let refresh_cookie = match jar.get("iotorchid_refresh_token") {
+    let refresh_cookie = match jar.get(REFRESH_TOKEN_COOKIE_NAME) {
         Some(cookie) => cookie.clone(),
         None => return Err(Error::ExpectedCookiesNotFound),
     };
@@ -83,6 +105,43 @@ pub async fn logout(jar: CookieJar) -> Result<CookieJar, Error> {
     Ok(jar.remove(access_cookie).remove(refresh_cookie))
 }
 
+// pub async fn refresh(jar: CookieJar) -> Result<CookieJar> {
+//     // Check if the refresh token cookie exists and is valid
+//     let refresh_claims = match jar.get(REFRESH_TOKEN_COOKIE_NAME) {
+//         Some(cookie) => {
+//             let refresh_token = cookie.clone();
+//             auth::jwt_auth::decode(refresh_token.value())?
+//         }
+//         None => return Err(Error::ExpectedCookiesNotFound),
+//     };
+
+//     // Get the access token for deletion
+//     let access_cookie = match jar.get(ACCESS_TOKEN_COOKIE_NAME) {
+//         Some(cookie) => cookie.clone(),
+//         None => return Err(Error::ExpectedCookiesNotFound),
+//     };
+
+//     // Delete the access token
+//     let jar = jar.remove(access_cookie);
+
+//     // Get the user ID from the refresh token claims
+//     let user_id = refresh_claims.sub;
+
+//     // Create a new access token
+//     let access_token = auth::jwt_auth::gen_access_cookie(user_id.clone())?;
+
+//     // Update the access token cookie
+//     let access_cookie = Cookie::build(Cookie::new(ACCESS_TOKEN_COOKIE_NAME, access_token))
+//         .http_only(true)
+//         .build();
+
+//     Ok(jar.add(access_cookie))
+// }
+
+/// Represents the user credentials for login.
+///
+/// This struct is used to deserialize the JSON payload containing the username and password
+/// for the login request.
 #[derive(Deserialize, ToSchema)]
 pub struct UserCredentials {
     #[schema(example = "foo")]
@@ -91,6 +150,9 @@ pub struct UserCredentials {
     password: String,
 }
 
+/// Represents the login success response.
+///
+/// This struct is used to serialize the access and refresh tokens in the login success response.
 #[derive(Serialize, ToSchema)]
 pub struct LoginSuccess {
     access_token: String,

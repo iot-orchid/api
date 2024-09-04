@@ -8,7 +8,7 @@ pub async fn jwt_guard(
     mut request: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> axum::response::Response {
-    let token = match jar.get("iotorchid_access_jwt") {
+    let token = match jar.get(auth::jwt_auth::ACCESS_TOKEN_COOKIE_NAME) {
         Some(token) => token.value(),
         None => {
             return axum::http::Response::builder()
