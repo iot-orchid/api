@@ -8,10 +8,26 @@ pub mod jwt_auth {
     use serde::{Deserialize, Serialize};
     use std::time::Duration;
 
-    pub fn encode(sub: String) -> Result<String> {
+    pub fn gen_access_token(sub: String) -> Result<String> {
         let claims = Claims {
             sub,
-            exp: (Utc::now() + Duration::from_secs(CONFIG.jwt.expires_in)).timestamp() as usize,
+            exp: (Utc::now() + Duration::from_secs(CONFIG.jwt.access_expires_in)).timestamp()
+                as usize,
+            iat: chrono::Utc::now().timestamp() as usize,
+            iss: CONFIG.jwt.issuer.clone(),
+        };
+
+        let jwt_secret = CONFIG.jwt.secret.clone();
+        let key = EncodingKey::from_secret(jwt_secret.as_bytes());
+
+        Ok(jsonwebtoken::encode(&Header::default(), &claims, &key)?)
+    }
+
+    pub fn gen_refresh_token(sub: String) -> Result<String> {
+        let claims = Claims {
+            sub,
+            exp: (Utc::now() + Duration::from_secs(CONFIG.jwt.refresh_expires_in)).timestamp()
+                as usize,
             iat: chrono::Utc::now().timestamp() as usize,
             iss: CONFIG.jwt.issuer.clone(),
         };

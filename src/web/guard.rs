@@ -1,12 +1,15 @@
+use axum_extra::extract::CookieJar;
+
 use crate::auth;
 use crate::context::Ctx;
 
 pub async fn jwt_guard(
+    jar: CookieJar,
     mut request: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> axum::response::Response {
-    let token = match request.headers().get("X-ACCESS-TOKEN") {
-        Some(token) => token,
+    let token = match jar.get("iotorchid_access_jwt") {
+        Some(token) => token.value(),
         None => {
             return axum::http::Response::builder()
                 .status(axum::http::StatusCode::UNAUTHORIZED)
@@ -15,17 +18,7 @@ pub async fn jwt_guard(
         }
     };
 
-    let token = match token.to_str() {
-        Ok(token) => token,
-        Err(_) => {
-            return axum::http::Response::builder()
-                .status(axum::http::StatusCode::UNAUTHORIZED)
-                .body("Unauthorized".into())
-                .unwrap()
-        }
-    };
-
-    let claims = match auth::jwt_auth::decode(token) {
+    let claims = match auth::jwt_auth::decode(&token) {
         Ok(token) => token,
         Err(_) => {
             return axum::http::Response::builder()

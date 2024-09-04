@@ -18,7 +18,8 @@ impl Default for JwtConfig {
     fn default() -> Self {
         JwtConfig {
             secret: "secret".to_string(),
-            expires_in: 60 * 60 * 5,
+            access_expires_in: 60 * 60 * 5,
+            refresh_expires_in: 60 * 60 * 24 * 7,
             issuer: "localhost".to_string(),
         }
     }
@@ -78,7 +79,8 @@ pub struct ConfigStruct {
 #[derive(Debug, Deserialize)]
 pub struct JwtConfig {
     pub secret: String,
-    pub expires_in: u64,
+    pub access_expires_in: u64,
+    pub refresh_expires_in: u64,
     pub issuer: String,
 }
 

@@ -19,7 +19,8 @@ use model::ModelManager;
         web::microdevice::get_devices,
         web::microdevice::create_device,
         web::microdevice::delete_device,
-        web::login::handler,
+        web::session::login,
+        web::session::logout,
     ),
     components(
         schemas (
@@ -28,8 +29,8 @@ use model::ModelManager;
             web::microdevice::DeviceCreate,
             web::microdevice::DeviceQuery,
             web::microdevice::DeviceStatus,
-            web::login::UserCredentials,
-            web::login::LoginSuccess,
+            web::session::UserCredentials,
+            web::session::LoginSuccess,
         )
     ),
     tags(

@@ -20,9 +20,13 @@ pub enum Error {
     UsernameNotFound,
     #[allow(dead_code)]
     BcryptError(BcryptError),
-
     #[allow(dead_code)]
     JwtError(auth::error::Error),
+    InvalidHeader(axum::http::header::InvalidHeaderValue),
+    #[allow(dead_code)]
+    AxumHttpError(axum::http::Error),
+    #[allow(dead_code)]
+    ExpectedCookiesNotFound,
 }
 
 impl From<UuidError> for Error {
@@ -55,6 +59,18 @@ impl From<auth::error::Error> for Error {
     }
 }
 
+impl From<axum::http::header::InvalidHeaderValue> for Error {
+    fn from(e: axum::http::header::InvalidHeaderValue) -> Self {
+        Error::InvalidHeader(e)
+    }
+}
+
+impl From<axum::http::Error> for Error {
+    fn from(e: axum::http::Error) -> Self {
+        Error::AxumHttpError(e)
+    }
+}
+
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         match self {
@@ -66,6 +82,9 @@ impl IntoResponse for Error {
             Error::UsernameNotFound => StatusCode::UNAUTHORIZED.into_response(),
             Error::BcryptError(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
             Error::JwtError(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+            Error::InvalidHeader(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+            Error::AxumHttpError(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+            Error::ExpectedCookiesNotFound => StatusCode::BAD_REQUEST.into_response(),
         }
     }
 }
