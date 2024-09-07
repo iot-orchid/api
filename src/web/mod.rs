@@ -28,6 +28,7 @@ pub fn app(model_manager: ModelManager) -> Router {
             delete(microdevice::delete_device),
         )
         .route("/logout", post(session::logout))
+        .route("/status", get(session::status))
         .layer(axum::middleware::from_fn(guard::jwt_guard))
         .route("/login", post(session::login))
         .layer(

@@ -20,6 +20,7 @@ use model::ModelManager;
         web::microdevice::create_device,
         web::microdevice::delete_device,
         web::session::login,
+        web::session::status,
         web::session::logout,
     ),
     components(

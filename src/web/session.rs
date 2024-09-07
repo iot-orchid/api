@@ -9,7 +9,6 @@ use sea_orm::prelude::*;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use auth::jwt_auth::{ACCESS_TOKEN_COOKIE_NAME, REFRESH_TOKEN_COOKIE_NAME};
 /// Handles the login request.
 ///
 /// This function is responsible for authenticating the user by checking the provided credentials.
@@ -42,8 +41,6 @@ pub async fn login(
     jar: CookieJar,
     Json(payload): Json<UserCredentials>,
 ) -> Result<CookieJar> {
-    println!("Login request received");
-
     let user = user::Entity::find()
         .filter(user::Column::Username.eq(&payload.username))
         .one(&state.db)
@@ -92,17 +89,44 @@ pub async fn login(
     ),
 )]
 pub async fn logout(jar: CookieJar) -> Result<CookieJar> {
-    let access_cookie = match jar.get(ACCESS_TOKEN_COOKIE_NAME) {
-        Some(cookie) => cookie.clone(),
-        None => return Err(Error::ExpectedCookiesNotFound),
-    };
+    
+    let access_cookie = auth::jwt_auth::nullify_access_cookie();
+    let refresh_cookie = auth::jwt_auth::nullify_refresh_cookie();
 
-    let refresh_cookie = match jar.get(REFRESH_TOKEN_COOKIE_NAME) {
-        Some(cookie) => cookie.clone(),
-        None => return Err(Error::ExpectedCookiesNotFound),
-    };
+    Ok(jar.add(access_cookie).add(refresh_cookie))
+}
 
-    Ok(jar.remove(access_cookie).remove(refresh_cookie))
+/// Checks if the user is authenticated.
+///
+/// This function checks if the user is authenticated by verifying the presence of the access token
+/// in the `CookieJar`. It receives the `CookieJar` as input and returns a `Result` indicating
+/// whether the user is authenticated or not.
+///
+/// # Examples
+///
+/// ```rust
+/// use axum::handler::get;
+/// use axum::Router;
+/// use iot_orchid::api::web::session::{login, logout, refresh, status};
+///
+/// let app = Router::new()
+///     .route("/login", post(login))
+///     .route("/logout", post(logout))
+///     .route("/refresh", post(refresh))
+///     .route("/status", get(status));
+/// ```
+#[utoipa::path(
+    get,
+    path = "/status",
+    tag = "Authentication",
+    responses(
+        (status = 200),
+        (status = 401),
+        (status = 400),
+    ),
+)]
+pub async fn status() -> Result<&'static str> {
+    Ok("Authenticated")
 }
 
 // pub async fn refresh(jar: CookieJar) -> Result<CookieJar> {

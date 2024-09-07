@@ -8,7 +8,6 @@ pub mod jwt_auth {
     use chrono::Utc;
     use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation};
     use serde::{Deserialize, Serialize};
-    use std::time::Duration;
 
     /// The name of the access token cookie.
     pub const ACCESS_TOKEN_COOKIE_NAME: &str = "iotorchid_access_token";
@@ -36,7 +35,7 @@ pub mod jwt_auth {
     pub fn gen_access_cookie(sub: String) -> Result<Cookie<'static>> {
         let claims = Claims {
             sub,
-            exp: (Utc::now() + Duration::from_secs(CONFIG.jwt.access_expires_in)).timestamp()
+            exp: (Utc::now() + std::time::Duration::from_secs(CONFIG.jwt.access_expires_in)).timestamp()
                 as usize,
             iat: chrono::Utc::now().timestamp() as usize,
             iss: CONFIG.jwt.issuer.clone(),
@@ -58,6 +57,26 @@ pub mod jwt_auth {
         Ok(cookie)
     }
 
+    pub fn nullify_access_cookie() -> Cookie<'static> {
+        Cookie::build(Cookie::new(ACCESS_TOKEN_COOKIE_NAME, ""))
+            .http_only(COOKIE_CFG_HTTP_ONLY)
+            .same_site(COOKIE_CFG_SAME_SITE)
+            .secure(COOKIE_CFG_SECURE)
+            .path(COOKIE_CFG_PATH)
+            .max_age(cookie::time::Duration::seconds(0))
+            .build()
+    }
+
+    pub fn nullify_refresh_cookie() -> Cookie<'static> {
+        Cookie::build(Cookie::new(REFRESH_TOKEN_COOKIE_NAME, ""))
+            .http_only(COOKIE_CFG_HTTP_ONLY)
+            .same_site(COOKIE_CFG_SAME_SITE)
+            .secure(COOKIE_CFG_SECURE)
+            .path(COOKIE_CFG_PATH)
+            .max_age(cookie::time::Duration::seconds(0))
+            .build()
+    }
+
     /// Generates a Cookie containing a JWT refresh token for the specified subject
     ///
     /// # Arguments
@@ -71,7 +90,7 @@ pub mod jwt_auth {
     pub fn gen_refresh_cookie(sub: String) -> Result<Cookie<'static>> {
         let claims = Claims {
             sub,
-            exp: (Utc::now() + Duration::from_secs(CONFIG.jwt.refresh_expires_in)).timestamp()
+            exp: (Utc::now() + std::time::Duration::from_secs(CONFIG.jwt.refresh_expires_in)).timestamp()
                 as usize,
             iat: chrono::Utc::now().timestamp() as usize,
             iss: CONFIG.jwt.issuer.clone(),

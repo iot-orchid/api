@@ -8,25 +8,20 @@ use uuid::Error as UuidError;
 pub type Result<T> = std::result::Result<T, Error>;
 use crate::auth;
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum Error {
-    #[allow(dead_code)]
     InvalidUuid(UuidError),
-    #[allow(dead_code)]
     DecodeError(DecodeError),
     UnauthorizedClusterAccess,
-    #[allow(dead_code)]
     DatabaseError(sea_orm::error::DbErr),
     IncorrectPassword,
     UsernameNotFound,
-    #[allow(dead_code)]
     BcryptError(BcryptError),
-    #[allow(dead_code)]
     JwtError(auth::error::Error),
     InvalidHeader(axum::http::header::InvalidHeaderValue),
-    #[allow(dead_code)]
     AxumHttpError(axum::http::Error),
-    #[allow(dead_code)]
     ExpectedCookiesNotFound,
+    Unauthorized,
 }
 
 impl From<UuidError> for Error {
@@ -85,6 +80,7 @@ impl IntoResponse for Error {
             Error::InvalidHeader(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
             Error::AxumHttpError(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
             Error::ExpectedCookiesNotFound => StatusCode::BAD_REQUEST.into_response(),
+            Error::Unauthorized => StatusCode::UNAUTHORIZED.into_response(),
         }
     }
 }

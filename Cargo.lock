@@ -142,6 +142,7 @@ dependencies = [
  "bcrypt",
  "chrono",
  "config",
+ "cookie",
  "entity",
  "jsonwebtoken",
  "migration",
