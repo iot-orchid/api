@@ -15,6 +15,7 @@ pub fn app(model_manager: ModelManager) -> Router {
     Router::new()
         .route("/clusters", post(cluster::create))
         .route("/clusters", get(cluster::get))
+        .route("/clusters/:clusterId/devices", put(microdevice::add_topic))
         .route(
             "/clusters/:clusterId/devices",
             get(microdevice::get_devices),
@@ -38,6 +39,12 @@ pub fn app(model_manager: ModelManager) -> Router {
                     "http://localhost:3001".parse().unwrap(),
                 ]))
                 .allow_credentials(true)
+                .allow_methods([
+                    axum::http::Method::GET,
+                    axum::http::Method::POST,
+                    axum::http::Method::DELETE,
+                    axum::http::Method::PUT,
+                ])
                 .allow_headers(vec![
                     "content-type".parse().unwrap(),
                     "authorization".parse().unwrap(),

@@ -21,7 +21,9 @@ pub enum Error {
     InvalidHeader(axum::http::header::InvalidHeaderValue),
     AxumHttpError(axum::http::Error),
     ExpectedCookiesNotFound,
+    InvalidTopicFormat,
     Unauthorized,
+    MalformedRequest(serde_json::Error),
 }
 
 impl From<UuidError> for Error {
@@ -81,6 +83,8 @@ impl IntoResponse for Error {
             Error::AxumHttpError(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
             Error::ExpectedCookiesNotFound => StatusCode::BAD_REQUEST.into_response(),
             Error::Unauthorized => StatusCode::UNAUTHORIZED.into_response(),
+            Error::InvalidTopicFormat => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+            Error::MalformedRequest(_) => StatusCode::BAD_REQUEST.into_response(),
         }
     }
 }

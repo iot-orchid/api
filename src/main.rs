@@ -19,6 +19,7 @@ use model::ModelManager;
         web::microdevice::get_devices,
         web::microdevice::create_device,
         web::microdevice::delete_device,
+        web::microdevice::add_topic,
         web::session::login,
         web::session::status,
         web::session::logout,

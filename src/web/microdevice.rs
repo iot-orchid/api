@@ -7,7 +7,8 @@ use axum::{
 };
 use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 use entity::{microdevice, user_cluster};
-use sea_orm::{entity::prelude::*, QueryTrait, Set};
+use futures::future;
+use sea_orm::{entity::prelude::*, IntoActiveModel, QuerySelect, QueryTrait, SelectColumns, Set};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use utoipa::ToSchema;
@@ -21,6 +22,8 @@ use utoipa::ToSchema;
         ("name" = Option<String>, Query, description="Microdevice Name"),
         ("id" = Option<i32>, Query, description="Microdevice ID"),
         ("status" = Option<DeviceStatus>, Query, description="Microdevice Status Code"),
+        ("include_topics" = Option<bool>, Query, description="Include Topics", example=true),
+        ("include_description" = Option<bool>, Query, description="Include Description", example=true),
     ),
     responses(
         (status = 200),
@@ -41,6 +44,15 @@ pub async fn get_devices(
     let (_, cluster_uuid) = check_membership(ctx.uuid, cluster_id, &state).await?;
 
     let devices = microdevice::Entity::find()
+        .select_only()
+        .select_column(microdevice::Column::Name)
+        .select_column(microdevice::Column::Id)
+        .apply_if(query.include_topics, |q, _| {
+            q.select_column(microdevice::Column::Topics)
+        })
+        .apply_if(query.include_description, |q, _| {
+            q.select_column(microdevice::Column::Description)
+        })
         .filter(microdevice::Column::ClusterId.eq(cluster_uuid))
         .apply_if(query.id, |q, id| q.filter(microdevice::Column::Id.eq(id)))
         .apply_if(query.name, |q, name| {
@@ -92,7 +104,71 @@ pub async fn delete_device(
     todo!()
 }
 
-async fn check_membership<S>(user_id: S, cluster_id: S, state: &ModelManager) -> Result<(Uuid, Uuid)>
+#[derive(Serialize, ToSchema)]
+pub struct Topic {
+    topic: String,
+}
+
+/// Add a topic to a microdevice
+///
+/// This endpoint allows you to add a topic to a microdevice. The topic will be used to filter messages that are sent to the microdevice.
+///
+#[utoipa::path(
+    put,
+    path = "/clusters/{clusterId}/devices",
+    tag = "Microdevices",
+    params(
+        ("clusterId" = String, Path, description="Cluster ID a existing cluster"),
+    ),
+    responses(
+        (status = 200),
+        (status = 401),
+        (status = 400),
+    ),
+    security(
+        ("api_key" = [])
+    ),
+)]
+pub async fn add_topic(
+    State(state): State<ModelManager>,
+    Extension(ctx): Extension<Ctx>,
+    Path(cluster_id): Path<String>,
+    ExtractJson(data): Json<Vec<String>>,
+) -> Result<Json<Vec<String>>> {
+    let (_, cluster_uuid) = check_membership(ctx.uuid, cluster_id, &state).await?;
+
+    let mut microdevice = microdevice::Entity::find()
+        .filter(microdevice::Column::ClusterId.eq(cluster_uuid))
+        .all(&state.db)
+        .await?;
+
+    let md_futures: Vec<_> = microdevice
+        .iter_mut()
+        .map(|md| {
+            let mut active_md: microdevice::ActiveModel = md.clone().into_active_model();
+
+            if let Some(md_topics) = active_md.topics.clone().into_value() {
+                if let Some(arr) = md_topics.as_ref_array() {
+                    let mut new_topics = data.clone();
+                    new_topics.extend(arr.iter().map(|v| v.to_string()));
+                    active_md.topics = Set(Some(serde_json::json!(new_topics)));
+                }
+            }
+
+            active_md.update(&state.db)
+        })
+        .collect();
+
+    future::try_join_all(md_futures).await?;
+
+    Ok(Json(data))
+}
+
+async fn check_membership<S>(
+    user_id: S,
+    cluster_id: S,
+    state: &ModelManager,
+) -> Result<(Uuid, Uuid)>
 where
     S: Into<String>,
 {
@@ -175,11 +251,15 @@ impl std::fmt::Display for DeviceStatus {
 }
 
 #[allow(dead_code)]
-#[derive(Deserialize, ToSchema)]
+#[derive(Deserialize, ToSchema, Debug)]
 pub struct DeviceQuery {
     name: Option<String>,
     id: Option<i32>,
     status: Option<DeviceStatus>,
+    #[schema(example = true)]
+    include_topics: Option<bool>,
+    #[schema(example = true)]
+    include_description: Option<bool>,
 }
 
 #[allow(dead_code)]
