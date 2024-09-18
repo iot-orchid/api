@@ -23,6 +23,7 @@ use model::ModelManager;
         web::session::login,
         web::session::status,
         web::session::logout,
+        web::rpc::rpc_handler,
     ),
     components(
         schemas (
@@ -33,6 +34,8 @@ use model::ModelManager;
             web::microdevice::DeviceStatus,
             web::session::UserCredentials,
             web::session::LoginSuccess,
+            web::rpc::JrpcExample,
+            web::rpc::MicrodeviceActions,
         )
     ),
     tags(

@@ -1,5 +1,5 @@
 use axum::{
-    http::StatusCode,
+    http::{method, StatusCode},
     response::{IntoResponse, Response},
 };
 use base64::DecodeError;
@@ -23,7 +23,8 @@ pub enum Error {
     ExpectedCookiesNotFound,
     InvalidTopicFormat,
     Unauthorized,
-    MalformedRequest(serde_json::Error),
+    SerdeJson(serde_json::Error),
+    InvalidMethod(String),
 }
 
 impl From<UuidError> for Error {
@@ -68,6 +69,12 @@ impl From<axum::http::Error> for Error {
     }
 }
 
+impl From<serde_json::error::Error> for Error {
+    fn from(e: serde_json::error::Error) -> Self {
+        Error::SerdeJson(e)
+    }
+}
+
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         match self {
@@ -84,7 +91,14 @@ impl IntoResponse for Error {
             Error::ExpectedCookiesNotFound => StatusCode::BAD_REQUEST.into_response(),
             Error::Unauthorized => StatusCode::UNAUTHORIZED.into_response(),
             Error::InvalidTopicFormat => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-            Error::MalformedRequest(_) => StatusCode::BAD_REQUEST.into_response(),
+            Error::SerdeJson(e) => {
+                // add the message to the response body
+                (StatusCode::BAD_REQUEST, e.to_string()).into_response()
+            },
+            Error::InvalidMethod(e) => {
+                // add the message to the response body
+                (StatusCode::BAD_REQUEST, format!("'{}' is an invalid method", e)).into_response()
+            },
         }
     }
 }

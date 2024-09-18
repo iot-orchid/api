@@ -3,6 +3,7 @@ pub mod cluster;
 pub mod error;
 mod guard;
 pub mod microdevice;
+pub mod rpc;
 pub mod session;
 pub mod user;
 
@@ -16,6 +17,9 @@ pub fn app(model_manager: ModelManager) -> Router {
         .route("/clusters", post(cluster::create))
         .route("/clusters", get(cluster::get))
         .route("/clusters/:clusterId/devices", put(microdevice::add_topic))
+        .route(
+            "/clusters/:clusterId/devices/actions",
+            post(rpc::rpc_handler))
         .route(
             "/clusters/:clusterId/devices",
             get(microdevice::get_devices),

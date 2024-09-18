@@ -138,6 +138,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "axum-extra",
+ "axum-jrpc",
  "base64 0.22.1",
  "bcrypt",
  "chrono",
@@ -151,6 +152,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
+ "strum",
  "tokio",
  "toml",
  "tower 0.5.0",
@@ -460,6 +462,21 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "tracing",
+]
+
+[[package]]
+name = "axum-jrpc"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4d43309d9b4aa9a30523ea666138c5eca3af65d226c766c02c3042da63a08a2"
+dependencies = [
+ "async-trait",
+ "axum",
+ "cfg-if",
+ "mime",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -3463,6 +3480,22 @@ name = "strum"
 version = "0.26.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
+dependencies = [
+ "strum_macros",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.26.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c6bee85a5a24955dc440386795aa378cd9cf82acd5f764469152d2270e581be"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.75",
+]
 
 [[package]]
 name = "subtle"
