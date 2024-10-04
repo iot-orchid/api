@@ -9,6 +9,11 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+  ampq:
+    image: rabbitmq:4
+    ports:
+      - "5671:5671"
+      - "5672:5672"
 
 volumes:
   db_data:

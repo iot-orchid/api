@@ -17,6 +17,10 @@ jwt:
   access_expires_in: 86400
   refresh_expires_in: 604800
   issuer: iot-orchid
-ampq: amqp://localhost:5672
+ampq: 
+  host: localhost
+  port: 5672
+  user: guest
+  password: guest
 port: 3001
 address: 0.0.0.0

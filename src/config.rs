@@ -6,13 +6,25 @@ impl Default for ConfigStruct {
     fn default() -> Self {
         ConfigStruct {
             database: DatabaseConfig::default(),
-            ampq: "amqp://guest:guest@localhost:5672".to_string(),
+            ampq: AmpqConfig::default(),
             port: "3000".to_string(),
             address: "localhost".to_string(),
             jwt: JwtConfig::default(),
         }
     }
 }
+
+impl Default for AmpqConfig {
+    fn default() -> Self {
+        AmpqConfig {
+            host: "localhost".to_string(),
+            port: 5672,
+            user: "guest".to_string(),
+            password: "guest".to_string(),
+        }
+    }
+}
+
 
 impl Default for JwtConfig {
     fn default() -> Self {
@@ -70,10 +82,18 @@ pub static CONFIG: Lazy<ConfigStruct> = Lazy::new(|| match ConfigStruct::new() {
 #[allow(dead_code)]
 pub struct ConfigStruct {
     pub database: DatabaseConfig,
-    pub ampq: String,
+    pub ampq: AmpqConfig,
     pub port: String,
     pub address: String,
     pub jwt: JwtConfig,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AmpqConfig{
+    pub host: String,
+    pub port: u16,
+    pub user: String,
+    pub password: String,
 }
 
 #[derive(Debug, Deserialize)]

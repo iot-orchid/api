@@ -64,18 +64,8 @@ impl Modify for SecurityAddon {
 
 #[tokio::main]
 async fn main() {
-    let db = match Database::connect(config::CONFIG.db_url()).await {
-        Ok(db) => {
-            println!("Connected to database");
-            db
-        }
-        Err(err) => {
-            eprintln!("Failed to connect to database: {:?}", err);
-            return;
-        }
-    };
 
-    let model_manager = ModelManager { db };
+    let model_manager = ModelManager::new();
 
     let app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
