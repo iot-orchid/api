@@ -2,7 +2,10 @@
 #[warn(clippy::perf)]
 #[warn(clippy::style)]
 mod error;
+pub mod actions;    
+use std::str::FromStr;
 
+#[allow(unused_imports)]
 use error::{Error, Result};
 use crate::context::Ctx;
 use crate::model::ModelManager;
@@ -10,7 +13,7 @@ use axum::extract::{Extension, Json as ExtractJson, Path, State};
 use axum::Json;
 use axum_jrpc::{Id, JrpcResult, JsonRpcRequest, JsonRpcResponse};
 use serde_json::Value;
-use strum::EnumString;
+use actions::MicrodeviceActions;
 
 // Struct to define an example JSON-RPC request for the API documentation
 #[derive(utoipa::ToSchema)]
@@ -23,18 +26,6 @@ pub struct JrpcExample {
     #[schema(example = "<method>")]
     method: MicrodeviceActions,
     params: Vec<String>,
-}
-
-// Enum representing the different actions available for microdevices
-#[derive(Debug, EnumString, utoipa::ToSchema, Clone)]
-#[strum(serialize_all = "snake_case")]
-pub enum MicrodeviceActions {
-    Start,
-    Stop,
-    Restart,
-    Reset,
-    PowerOn,
-    PowerOff,
 }
 
 // Defines possible states for processing a request
@@ -149,9 +140,9 @@ async fn process_batch_requests(
 fn parse_request(req: &Value) -> RequestProcessingState {
     match serde_json::from_value::<JsonRpcRequest>(req.clone()) {
         Ok(r) => {
-            let action = match r.method.to_lowercase().parse::<MicrodeviceActions>() {
+            let action = match MicrodeviceActions::from_str(&r.method.to_lowercase()) {
                 Ok(a) => a,
-                Err(e) => return RequestProcessingState::Error(Err(JsonRpcResponse::error(
+                Err(_) => return RequestProcessingState::Error(Err(JsonRpcResponse::error(
                     r.id,
                     Error::InvalidMethod(format!("method `{}` is not a valid action", r.method)).into(),
                 ))),
@@ -172,39 +163,5 @@ pub async fn execute_helper(
     cluster_id: &String,
     (id, action, params): (Id, MicrodeviceActions, Value),
 ) -> JrpcResult {
-    match action.execute(model_manager, ctx, cluster_id, &params).await {
-        Ok(v) => Ok(JsonRpcResponse::success(id, v)),
-        Err(e) => Err(JsonRpcResponse::error(id, e.into())),
-    }
-}
-
-// Implementation of actions that can be performed on microdevices
-impl MicrodeviceActions {
-    async fn execute(
-        &self, 
-        _model_manager: &ModelManager, 
-        ctx: &Ctx, 
-        cluster_id: &String, 
-        _params: &Value
-    ) -> Result<Value> {
-        // Different action responses for each method
-        let response = match self {
-            MicrodeviceActions::Start       => json_response("start", ctx, cluster_id),
-            MicrodeviceActions::Stop        => json_response("stop", ctx, cluster_id),
-            MicrodeviceActions::Restart     => json_response("restart", ctx, cluster_id),
-            MicrodeviceActions::Reset       => json_response("reset", ctx, cluster_id),
-            MicrodeviceActions::PowerOn     => json_response("power_on", ctx, cluster_id),
-            MicrodeviceActions::PowerOff    => json_response("power_off", ctx, cluster_id),
-        };
-        Ok(response)
-    }
-}
-
-// Helper function to create a consistent JSON response
-fn json_response(action: &str, ctx: &Ctx, cluster_id: &String) -> Value {
-    serde_json::json!({
-        "message": action,
-        "user": ctx.uuid,
-        "cluster": cluster_id,
-    })
+    action.execute(model_manager, ctx, cluster_id, id, params).await 
 }

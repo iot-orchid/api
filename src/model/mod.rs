@@ -1,7 +1,5 @@
 use super::config;
 use futures::executor::block_on;
-use sea_orm::Database;
-use sea_orm::DatabaseConnection;
 
 #[derive(Clone)]
 pub struct ModelManager {
@@ -11,7 +9,7 @@ pub struct ModelManager {
 
 impl ModelManager {
     pub fn new() -> Self {
-        let fut = Database::connect(config::CONFIG.db_url());
+        let fut = sea_orm::Database::connect(config::CONFIG.db_url());
 
         let sea_orm_db = match block_on(fut) {
             Ok(db) => {

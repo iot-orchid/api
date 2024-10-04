@@ -19,7 +19,8 @@ pub fn app(model_manager: ModelManager) -> Router {
         .route("/clusters/:clusterId/devices", put(microdevice::add_topic))
         .route(
             "/clusters/:clusterId/devices/actions",
-            post(rpc::rpc_handler))
+            post(rpc::rpc_handler),
+        )
         .route(
             "/clusters/:clusterId/devices",
             get(microdevice::get_devices),

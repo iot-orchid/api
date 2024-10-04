@@ -1,5 +1,4 @@
 use axum::Router;
-use sea_orm::Database;
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::{Modify, OpenApi};
 use utoipa_swagger_ui::SwaggerUi;
@@ -35,7 +34,7 @@ use model::ModelManager;
             web::session::UserCredentials,
             web::session::LoginSuccess,
             web::rpc::JrpcExample,
-            web::rpc::MicrodeviceActions,
+            web::rpc::actions::MicrodeviceActions,
         )
     ),
     tags(
@@ -64,7 +63,6 @@ impl Modify for SecurityAddon {
 
 #[tokio::main]
 async fn main() {
-
     let model_manager = ModelManager::new();
 
     let app = Router::new()

@@ -1,5 +1,5 @@
 use axum::{
-    http::{method, StatusCode},
+    http::StatusCode,
     response::{IntoResponse, Response},
 };
 use base64::DecodeError;
@@ -94,11 +94,15 @@ impl IntoResponse for Error {
             Error::SerdeJson(e) => {
                 // add the message to the response body
                 (StatusCode::BAD_REQUEST, e.to_string()).into_response()
-            },
+            }
             Error::InvalidMethod(e) => {
                 // add the message to the response body
-                (StatusCode::BAD_REQUEST, format!("'{}' is an invalid method", e)).into_response()
-            },
+                (
+                    StatusCode::BAD_REQUEST,
+                    format!("'{}' is an invalid method", e),
+                )
+                    .into_response()
+            }
         }
     }
 }

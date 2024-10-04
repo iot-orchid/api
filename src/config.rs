@@ -25,7 +25,6 @@ impl Default for AmpqConfig {
     }
 }
 
-
 impl Default for JwtConfig {
     fn default() -> Self {
         JwtConfig {

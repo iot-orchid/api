@@ -98,23 +98,11 @@ pub async fn logout(jar: CookieJar) -> Result<CookieJar> {
 
 /// Checks if the user is authenticated.
 ///
-/// This function checks if the user is authenticated by verifying the presence of the access token
-/// in the `CookieJar`. It receives the `CookieJar` as input and returns a `Result` indicating
-/// whether the user is authenticated or not.
-///
-/// # Examples
-///
-/// ```rust
-/// use axum::handler::get;
-/// use axum::Router;
-/// use iot_orchid::api::web::session::{login, logout, refresh, status};
-///
-/// let app = Router::new()
-///     .route("/login", post(login))
-///     .route("/logout", post(logout))
-///     .route("/refresh", post(refresh))
-///     .route("/status", get(status));
-/// ```
+/// This endpoint is used to check if the user is authenticated by verifying the access token. 
+/// 
+/// **Request must include**
+/// - Access token as a HTTP-only cookie
+/// - Refresh token as a HTTP-only cookie
 #[utoipa::path(
     get,
     path = "/status",
