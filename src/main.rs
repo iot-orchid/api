@@ -26,9 +26,9 @@ use model::ModelManager;
     ),
     components(
         schemas (
-            web::cluster::ClusterCreate,
-            web::cluster::ClusterRecord,
-            web::microdevice::DeviceCreate,
+            model::cluster::ClusterCreate,
+            model::cluster::ClusterRecord,
+            model::microdevice::MicrodeviceCreate,
             web::microdevice::DeviceQuery,
             web::microdevice::DeviceStatus,
             web::session::UserCredentials,

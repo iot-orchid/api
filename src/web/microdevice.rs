@@ -1,6 +1,6 @@
 use super::error::{Error, Result};
-use crate::context::Ctx;
 use crate::model::ModelManager;
+use crate::{context::Ctx, model::microdevice::MicrodeviceCreate};
 use axum::{
     extract::{Extension, Json as ExtractJson, Path, Query, State},
     response::Json,
@@ -207,8 +207,8 @@ pub async fn create_device(
     State(state): State<ModelManager>,
     Extension(ctx): Extension<Ctx>,
     Path(cluster_id): Path<String>,
-    ExtractJson(data): Json<DeviceCreate>,
-) -> Result<Json<DeviceCreate>> {
+    ExtractJson(data): Json<MicrodeviceCreate>,
+) -> Result<Json<MicrodeviceCreate>> {    
     let (_, cluster_uuid) = check_membership(ctx.uuid, cluster_id, &state).await?;
 
     microdevice::ActiveModel {
@@ -260,13 +260,6 @@ pub struct DeviceQuery {
     include_topics: Option<bool>,
     #[schema(example = true)]
     include_description: Option<bool>,
-}
-
-#[allow(dead_code)]
-#[derive(Deserialize, Serialize, Debug, Clone, ToSchema)]
-pub struct DeviceCreate {
-    name: String,
-    description: String,
 }
 
 #[derive(Serialize, ToSchema)]

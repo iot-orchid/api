@@ -1,5 +1,11 @@
 use super::config;
 use futures::executor::block_on;
+pub mod cluster;
+mod common;
+pub mod error;
+pub mod microdevice;
+#[allow(unused_imports)]
+use error::{Error, Result};
 
 #[derive(Clone)]
 pub struct ModelManager {

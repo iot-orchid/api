@@ -10,6 +10,8 @@ use crate::auth;
 #[derive(Debug)]
 #[allow(dead_code)]
 pub enum Error {
+    ClusterNotFound,
+    StoreError(String),
     InvalidUuid(UuidError),
     DecodeError(DecodeError),
     UnauthorizedClusterAccess,
@@ -25,6 +27,12 @@ pub enum Error {
     Unauthorized,
     SerdeJson(serde_json::Error),
     InvalidMethod(String),
+}
+
+impl From<crate::model::error::Error> for Error {
+    fn from(e: crate::model::error::Error) -> Self {
+        Error::StoreError(e.to_string())
+    }
 }
 
 impl From<UuidError> for Error {
@@ -78,6 +86,8 @@ impl From<serde_json::error::Error> for Error {
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         match self {
+            Error::ClusterNotFound => (StatusCode::NOT_FOUND).into_response(),
+            Error::StoreError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e).into_response(),
             Error::InvalidUuid(_) => StatusCode::BAD_REQUEST.into_response(),
             Error::DecodeError(_) => StatusCode::BAD_REQUEST.into_response(),
             Error::UnauthorizedClusterAccess => StatusCode::UNAUTHORIZED.into_response(),

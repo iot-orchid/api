@@ -4,6 +4,7 @@ use super::ModelManager;
 use axum_jrpc::error::JsonRpcError;
 use axum_jrpc::JrpcResult;
 use axum_jrpc::JsonRpcResponse;
+#[allow(unused_imports)]
 use entity;
 use serde::Deserialize;
 use serde::Serialize;
@@ -27,8 +28,8 @@ impl MicrodeviceActions {
     pub async fn execute(
         &self,
         _model_manager: &ModelManager,
-        ctx: &Ctx,
-        cluster_id: &String,
+        _ctx: &Ctx,
+        _cluster_id: &String,
         id: axum_jrpc::Id,
         params: Value,
     ) -> JrpcResult {
@@ -74,7 +75,18 @@ fn unimplemented(id: axum_jrpc::Id) -> JrpcResult {
     ))
 }
 
+/// Checks if device_id(s) exist in the cluster
+#[allow(unused_variables)]
+async fn check_device_id(
+    model_manager: &ModelManager,
+    cluster_id: &String,
+    device_id: &MicrodeviceId,
+) -> Result<()> {
+    todo!()
+}
+
 #[derive(Debug, Deserialize, Serialize)]
+#[serde(untagged)]
 enum MicrodeviceId {
     Multiple(Vec<String>),
     Single(String),
@@ -84,7 +96,7 @@ enum MicrodeviceId {
 
 struct MicroDeviceActionParams {
     cluster_wide: bool,
-    device_ids: Option<MicrodeviceId>,
+    device_id: Option<MicrodeviceId>,
 }
 
 // async fn start_device(mm: &ModelManager, ctx: &Ctx, cluster_id: &String, device_id: &String) {}
