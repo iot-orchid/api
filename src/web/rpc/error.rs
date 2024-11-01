@@ -1,12 +1,11 @@
 use axum_jrpc::error::{JsonRpcError, JsonRpcErrorReason};
 use axum_jrpc::Value;
-
 #[derive(Debug)]
 pub enum Error {
     SerdeJson(serde_json::Error),
     InvalidMethod(String),
 }
-
+#[allow(dead_code)]
 pub type Result<T> = std::result::Result<T, Error>;
 impl std::error::Error for Error {}
 
@@ -15,8 +14,8 @@ impl std::fmt::Display for Error {
         write!(f, "Error")
     }
 }
- 
-impl From<Error> for JsonRpcError{
+
+impl From<Error> for JsonRpcError {
     fn from(e: Error) -> Self {
         match e {
             Error::SerdeJson(e) => JsonRpcError::new(
@@ -25,19 +24,15 @@ impl From<Error> for JsonRpcError{
                 Value::default(),
             ),
 
-            Error::InvalidMethod(e) => JsonRpcError::new(
-                JsonRpcErrorReason::MethodNotFound,
-                e,
-                Value::default(),
-            )
+            Error::InvalidMethod(e) => {
+                JsonRpcError::new(JsonRpcErrorReason::MethodNotFound, e, Value::default())
+            }
         }
     }
-
 }
-
 
 impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Self {
-        Error::SerdeJson(e) 
+        Error::SerdeJson(e)
     }
 }

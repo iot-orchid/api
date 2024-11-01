@@ -16,7 +16,7 @@ pub fn app(model_manager: ModelManager) -> Router {
     Router::new()
         .route("/clusters", post(cluster::create))
         .route("/clusters", get(cluster::get))
-        .route("/clusters/:clusterId/devices", put(microdevice::add_topic))
+        .route("/clusters/:clusterId/device/:microdeviceId", put(microdevice::update_device))
         .route(
             "/clusters/:clusterId/devices/actions",
             post(rpc::rpc_handler),

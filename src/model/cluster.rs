@@ -1,4 +1,4 @@
-use super::common::parse_uuid;
+use super::common::parse_cluster_id;
 use super::error::{Error, Result};
 use super::ModelManager;
 use crate::context::Ctx;
@@ -63,7 +63,7 @@ impl ClusterBaseModelController {
         cluster: ClusterCreate,
     ) -> Result<ClusterRecord> {
         let new_uuid = uuid::Uuid::new_v4();
-        let ctx_uuid = parse_uuid(&ctx.uuid)?;
+        let ctx_uuid = parse_cluster_id(&ctx.uuid)?;
 
         let new_cluster = cluster::ActiveModel {
             id: Set(new_uuid),
@@ -91,10 +91,10 @@ impl ClusterBaseModelController {
         ctx: &Ctx,
         params: &ClusterQuery,
     ) -> Result<Vec<ClusterRecord>> {
-        let ctx_uuid = parse_uuid(&ctx.uuid)?;
+        let ctx_uuid = parse_cluster_id(&ctx.uuid)?;
 
         let query_uuid = match &params.uuid {
-            Some(uuid) => Some(parse_uuid(uuid)?),
+            Some(uuid) => Some(parse_cluster_id(uuid)?),
             None => None,
         };
 
@@ -114,27 +114,34 @@ impl ClusterBaseModelController {
         Ok(records)
     }
 
-    pub async fn exists<T>(mm: &ModelManager, ctx: &Ctx, cluster_uuid: T) -> Result<bool>
+    pub async fn exists<T>(mm: &ModelManager, ctx: &Ctx, cluster_uuid: T) -> Result<()>
     where
         T: Into<ClusterUuid>,
     {
-        let ctx_uuid = parse_uuid(&ctx.uuid)?;
+        let ctx_uuid = parse_cluster_id(&ctx.uuid)?;
 
         match cluster_uuid.into() {
             ClusterUuid::Single(uuid) => {
-                let cluster_uuid = parse_uuid(&uuid)?;
+                let cluster_uuid = parse_cluster_id(&uuid)?;
 
                 let count = Self::find_clusters_by_user_uuid(ctx_uuid)
                     .filter(cluster::Column::Id.eq(cluster_uuid))
                     .count(&mm.db)
                     .await?;
 
-                Ok::<bool, Error>(count > 0)
+                if count == 0 {
+                    return Err(Error {
+                        kind: super::error::ErrorKind::ClusterNotFound,
+                        message: format!("cluster `{}` not found.", cluster_uuid),
+                    })
+                }
+                
+                Ok(())
             }
             ClusterUuid::Multiple(uuids) => {
                 let cluster_uuids: Vec<Uuid> = uuids
                     .iter()
-                    .map(|uuid| parse_uuid(uuid))
+                    .map(|uuid| parse_cluster_id(uuid))
                     .collect::<Result<Vec<Uuid>>>()?;
 
                 let uuid_count: u64 = cluster_uuids.len() as u64;
@@ -147,7 +154,14 @@ impl ClusterBaseModelController {
                     .count(&mm.db)
                     .await?;
 
-                Ok::<bool, Error>(count == uuid_count)
+                if count != uuid_count {
+                    return Err(Error {
+                        kind: super::error::ErrorKind::ClusterNotFound,
+                        message: "One or more clusters not found".to_string(),
+                    });
+                }
+
+                Ok(())
             }
         }
     }

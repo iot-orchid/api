@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 use super::error::Result;
 use super::Ctx;
 use super::ModelManager;
@@ -21,19 +22,20 @@ pub enum MicrodeviceActions {
     Reset,
     PowerOn,
     PowerOff,
+    UserDefined,
 }
 
 // Implementation of actions that can be performed on microdevices
 impl MicrodeviceActions {
     pub async fn execute(
         &self,
-        _model_manager: &ModelManager,
+        _mm: &ModelManager,
         _ctx: &Ctx,
         _cluster_id: &String,
         id: axum_jrpc::Id,
         params: Value,
     ) -> JrpcResult {
-        let parsed_params: MicroDeviceActionParams = match serde_json::from_value(params) {
+        let _parsed_params: MicroDeviceActionParams = match serde_json::from_value(params) {
             Ok(params) => params,
             Err(e) => {
                 return Err(JsonRpcResponse::error(
@@ -49,15 +51,13 @@ impl MicrodeviceActions {
 
         // Different action responses for each method
         let response = match self {
-            MicrodeviceActions::Start => Ok(JsonRpcResponse::success(
-                id,
-                serde_json::to_value(parsed_params).unwrap(),
-            )),
+            MicrodeviceActions::Start => unimplemented(id),
             MicrodeviceActions::Stop => unimplemented(id),
             MicrodeviceActions::Restart => unimplemented(id),
             MicrodeviceActions::Reset => unimplemented(id),
             MicrodeviceActions::PowerOn => unimplemented(id),
             MicrodeviceActions::PowerOff => unimplemented(id),
+            MicrodeviceActions::UserDefined => unimplemented(id),
         };
 
         response
@@ -75,16 +75,6 @@ fn unimplemented(id: axum_jrpc::Id) -> JrpcResult {
     ))
 }
 
-/// Checks if device_id(s) exist in the cluster
-#[allow(unused_variables)]
-async fn check_device_id(
-    model_manager: &ModelManager,
-    cluster_id: &String,
-    device_id: &MicrodeviceId,
-) -> Result<()> {
-    todo!()
-}
-
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(untagged)]
 enum MicrodeviceId {
@@ -99,4 +89,4 @@ struct MicroDeviceActionParams {
     device_id: Option<MicrodeviceId>,
 }
 
-// async fn start_device(mm: &ModelManager, ctx: &Ctx, cluster_id: &String, device_id: &String) {}
+// async fn start_device(mm: &odelManager, ctx: &Ctx, cluster_id: &String, device_id: &String) {}

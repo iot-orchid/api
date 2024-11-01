@@ -10,7 +10,8 @@ use error::{Error, Result};
 #[derive(Clone)]
 pub struct ModelManager {
     pub(crate) db: sea_orm::DatabaseConnection,
-    pub(crate) amqp: amqprs::connection::Connection,
+    pub(crate) _amqp: amqprs::connection::Connection,
+    
 }
 
 impl ModelManager {
@@ -49,7 +50,7 @@ impl ModelManager {
 
         Self {
             db: sea_orm_db,
-            amqp: amqp_conn,
+            _amqp: amqp_conn,
         }
     }
 }
