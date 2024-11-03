@@ -1,4 +1,5 @@
 use super::config;
+use amqprs::channel::{Channel, QueueDeclareArguments};
 use futures::executor::block_on;
 pub mod cluster;
 mod common;
@@ -10,8 +11,8 @@ use error::{Error, Result};
 #[derive(Clone)]
 pub struct ModelManager {
     pub(crate) db: sea_orm::DatabaseConnection,
-    pub(crate) _amqp: amqprs::connection::Connection,
-    
+    pub(crate) amqp: amqprs::connection::Connection,
+    pub(crate) channel : amqprs::channel::Channel,
 }
 
 impl ModelManager {
@@ -48,9 +49,46 @@ impl ModelManager {
             }
         };
 
+        let fut = amqp_conn.open_channel(None);
+
+        let channel = match block_on(fut) {
+            Ok(channel) => {
+                println!("Opened channel");
+                channel
+            }
+            Err(err) => {
+                panic!("Error opening channel: {}", err);
+            }
+        };
+
+        let fut = channel.queue_declare(
+            QueueDeclareArguments::new(config::CONFIG.ampq.mqtt_gateway_queue_name.as_str())
+                .finish(),
+        );
+
+        let queue = match block_on(fut) {
+            Ok(v) => {
+                println!("Queue declared: {:?}", v);
+                v
+            }
+            Err(err) => {
+                match block_on(channel.close()) {
+                    Ok(_) => {
+                        eprintln!("Error: Failed to declare worker queue: {}. Channel closed successfully.", err);
+                        std::process::exit(1);
+                    }
+                    Err(close_err) => {
+                        eprintln!("Error: Failed to declare worker queue: {}. Additionally, failed to close channel: {}", err, close_err);
+                        std::process::exit(1);
+                    }
+                }
+            }
+        };
+
         Self {
             db: sea_orm_db,
-            _amqp: amqp_conn,
+            amqp: amqp_conn,
+            channel : channel
         }
     }
 }

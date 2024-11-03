@@ -61,6 +61,19 @@ pub struct MicrodeviceGetParams {
     include_cluster_uuid: Option<bool>,
 }
 
+impl MicrodeviceGetParams {
+    pub fn for_action(microdevice_id: i32) -> Self {
+        Self {
+            name: None,
+            id: Some(microdevice_id),
+            status: None,
+            include_topics: Some(true),
+            include_description: Some(false),
+            include_cluster_uuid: Some(true),
+        }
+    }
+}
+
 #[derive(Deserialize, utoipa::ToSchema, Debug)]
 pub struct MicrodeviceDeleteParams {
     name: Option<String>,
@@ -89,6 +102,30 @@ pub enum DeviceStatus {
 pub struct MicrodeviceBaseModelController {}
 
 impl MicrodeviceBaseModelController {
+    pub async fn execute_action(
+        mm: &ModelManager,
+        ctx: &Ctx,
+        cluster_uuid: String,
+        microdevice_id: i32,
+    ) -> Result<()> {
+        let microdevice_data = Self::get_microdevice(
+            mm,
+            ctx,
+            cluster_uuid,
+            MicrodeviceGetParams::for_action(microdevice_id),
+        )
+        .await?;
+
+        if microdevice_data.is_empty() {
+            return Err(Error {
+                kind: super::error::ErrorKind::MicrodeviceNotFound,
+                message: "failed to execute action because microdevice was not found".to_string(),
+            });
+        }
+
+        todo!()
+    }
+
     pub async fn get_microdevice(
         mm: &ModelManager,
         ctx: &Ctx,
@@ -102,6 +139,10 @@ impl MicrodeviceBaseModelController {
             .select_column(microdevice::Column::Id)
             .select_column(microdevice::Column::Name)
             .filter(microdevice::Column::ClusterId.eq(parse_cluster_id(&cluster_uuid)?))
+            .apply_if(params.id, |q, id| q.filter(microdevice::Column::Id.eq(id)))
+            .apply_if(params.name, |q, name| {
+                q.filter(microdevice::Column::Name.eq(name))
+            })
             .apply_if(params.include_description, |q, include_description| {
                 if include_description {
                     return q.select_column(microdevice::Column::Description);
@@ -138,7 +179,7 @@ impl MicrodeviceBaseModelController {
         let mut new_microdevice = microdevice::ActiveModel {
             name: Set(microdevice.name),
             cluster_id: Set(parse_cluster_id(&cluster_uuid)?),
-            ..Default::default()  
+            ..Default::default()
         };
 
         microdevice.topics.map(|v| {
@@ -149,7 +190,7 @@ impl MicrodeviceBaseModelController {
             new_microdevice.description = Set(Some(v));
         });
 
-    let new_microdevice = new_microdevice.insert(&mm.db).await?;
+        let new_microdevice = new_microdevice.insert(&mm.db).await?;
 
         Ok(MicrodeviceRecord {
             cluster_id: Some(new_microdevice.cluster_id),
