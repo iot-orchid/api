@@ -1802,6 +1802,7 @@ dependencies = [
  "async-std",
  "bcrypt",
  "entity",
+ "futures",
  "sea-orm-migration",
  "uuid",
 ]

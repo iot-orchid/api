@@ -13,7 +13,7 @@ async-std = { version = "1", features = ["attributes", "tokio1"] }
 entity = { path = "../entity" }
 bcrypt = "0.15.1"
 uuid = { version = "1.10.0", features = ["v4", "fast-rng"] }
-
+futures = {version = "0.3.30"}
 [dependencies.sea-orm-migration]
 version = "1.0.0"
 features = [
