@@ -1,4 +1,6 @@
 use axum::response::IntoResponse;
+
+use super::ampq;
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
@@ -6,6 +8,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[allow(dead_code)]
 pub enum ErrorKind {
     DatabaseError(sea_orm::error::DbErr),
+    AmpqError(ampq::error::Error),
     UuidError(uuid::Error),
     Base64DecodeError(base64::DecodeError),
     MessageBrokerError(amqprs::error::Error),
@@ -32,6 +35,7 @@ impl std::fmt::Display for ErrorKind {
             ErrorKind::ClusterNotFound => write!(f, "Cluster not found"),
             ErrorKind::MicrodeviceNotFound => write!(f, "Microdevice not found"),
             ErrorKind::MessageBrokerError(e) => write!(f, "Message broker error: {}", e),
+            ErrorKind::AmpqError(e) => write!(f, "Ampq error: {}", e),
         }
     }
 }
@@ -70,6 +74,16 @@ impl From<base64::DecodeError> for Error {
     }
 }
 
+impl From<ampq::error::Error> for Error {
+    fn from(e: ampq::error::Error) -> Self {
+        let msg = e.to_string();
+        Error {
+            kind: ErrorKind::AmpqError(e),
+            message: msg,
+        }
+    }
+}
+
 impl IntoResponse for Error {
     fn into_response(self) -> axum::http::Response<axum::body::Body> {
         axum::http::Response::builder()
@@ -81,6 +95,7 @@ impl IntoResponse for Error {
                 ErrorKind::UnauthorizedClusterAccess => axum::http::StatusCode::UNAUTHORIZED,
                 ErrorKind::ClusterNotFound => axum::http::StatusCode::NOT_FOUND,
                 ErrorKind::MicrodeviceNotFound => axum::http::StatusCode::NOT_FOUND,
+                ErrorKind::AmpqError(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
             })
             .body(self.message.into())
             .unwrap()

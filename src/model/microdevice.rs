@@ -2,12 +2,16 @@ use super::common::{parse_cluster_id, parse_microdevice_id};
 #[allow(unused_imports)]
 use super::error::{Error, Result};
 use super::{cluster::ClusterBaseModelController as ClusterBMC, ModelManager};
+use crate::config;
 use crate::context::Ctx;
+use amqprs::channel::{BasicPublishArguments, QueueDeclareArguments};
+use amqprs::BasicProperties;
 use entity::microdevice;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{entity::prelude::*, QueryTrait};
 use sea_orm::{EntityTrait, QuerySelect, SelectColumns};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(untagged)]
@@ -148,6 +152,7 @@ impl MicrodeviceBaseModelController {
         cluster_id: String,
         microdevice_ids: I,
         action: A,
+        payload: serde_json::Value,
     ) -> Result<Vec<MicrodeviceActionResponse>>
     where
         I: IntoIterator + Clone,
@@ -194,7 +199,9 @@ impl MicrodeviceBaseModelController {
         // Collect the futures
         let fut: Vec<_> = to_process
             .into_iter()
-            .map(|rec| Self::transmit_action(rec.clone(), action.clone()))
+            .map(|rec| {
+                Self::transmit_action(mm, rec.clone(), action.clone(), payload.clone())
+            })
             .collect();
 
         // Execute the futures
@@ -275,14 +282,23 @@ impl MicrodeviceBaseModelController {
     }
 
     async fn transmit_action(
+        mm: &ModelManager,
         microdevice: MicrodeviceRecord,
         action: MicrodeviceAction,
+        payload: serde_json::Value,
     ) -> Result<MicrodeviceActionResponse> {
+
+        
+        let res = mm.ampq_bridge.transmit_action(payload).await?;
+
+        // Parse the result to see if the action was successful
+        // TODO
+
         Ok(MicrodeviceActionResponse {
             microdevice_id: microdevice.id.unwrap().into(),
             status: "success".to_string(),
-            message: format!("action `{:?}` executed successfully", action),
-            payload: serde_json::Value::Null,
+            message: "action was successfully transmitted".to_string(),
+            payload: serde_json::to_string(&res).unwrap().into(),
         })
     }
 

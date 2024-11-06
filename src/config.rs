@@ -21,7 +21,8 @@ impl Default for AmpqConfig {
             port: 5672,
             user: "guest".to_string(),
             password: "guest".to_string(),
-            mqtt_gateway_queue_name: "mqtt-gatway-wq".to_string()
+            mqtt_gateway_queue_name: "mqtt-gatway-wq".to_string(),
+            timeout: 10,
         }
     }
 }
@@ -95,6 +96,7 @@ pub struct AmpqConfig{
     pub user: String,
     pub password: String,
     pub mqtt_gateway_queue_name: String,
+    pub timeout: u64,
 }
 
 #[derive(Debug, Deserialize)]

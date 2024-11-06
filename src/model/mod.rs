@@ -1,17 +1,17 @@
 use super::config;
 use futures::executor::block_on;
+mod ampq;
 pub mod cluster;
 mod common;
 pub mod error;
 pub mod microdevice;
-mod msg_broker;
 #[allow(unused_imports)]
 use error::{Error, Result};
 
 #[derive(Clone)]
 pub struct ModelManager {
     pub(crate) db: sea_orm::DatabaseConnection,
-    pub(crate) msg_broker: msg_broker::MessageBroker,
+    pub(crate) ampq_bridge: ampq::MessageBroker,
 }
 
 impl ModelManager {
@@ -28,11 +28,11 @@ impl ModelManager {
             }
         };
 
-        let msg_broker = msg_broker::MessageBroker::new().await;
+        let msg_broker = ampq::MessageBroker::new().await;
 
         Self {
             db: sea_orm_db,
-            msg_broker,
+            ampq_bridge: msg_broker,
         }
     }
 }

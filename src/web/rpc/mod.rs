@@ -172,16 +172,18 @@ pub async fn execute_helper(
 
     if let Some(microdevice_id) = parsed_params.microdevice_id {
 
+        let payload = parsed_params.payload.unwrap_or_default();
+
         match microdevice_id {
             MicrodeviceActionParamsId::Single(md_id) => {
-                match MicrodeviceBMC::trigger_action(model_manager, ctx, cluster_id.to_owned(), std::iter::once(md_id), action).await {
+                match MicrodeviceBMC::trigger_action(model_manager, ctx, cluster_id.to_owned(), std::iter::once(md_id), action, payload).await {
                     Ok(v) => return JrpcResult::Ok(JsonRpcResponse::success(id, v)),
                     Err(e) => return JrpcResult::Ok(JsonRpcResponse::error(id,  JsonRpcError::new(axum_jrpc::error::JsonRpcErrorReason::InternalError, e.to_string(), Value::default()
                     ))),
                 }    
             },
             MicrodeviceActionParamsId::Multiple(ids) => {
-                match MicrodeviceBMC::trigger_action(model_manager, ctx, cluster_id.to_owned(), ids, action).await {
+                match MicrodeviceBMC::trigger_action(model_manager, ctx, cluster_id.to_owned(), ids, action, payload).await {
                     Ok(v) => return JrpcResult::Ok(JsonRpcResponse::success(id, v)),
                     Err(e) => return JrpcResult::Ok(JsonRpcResponse::error(id,  JsonRpcError::new(axum_jrpc::error::JsonRpcErrorReason::InternalError, e.to_string(), Value::default()
                     ))),
@@ -204,4 +206,5 @@ enum MicrodeviceActionParamsId {
 struct MicrodeviceActionParams {
     cluster_wide: Option<bool>,
     microdevice_id: Option<MicrodeviceActionParamsId>,
+    payload: Option<Value>,
 }
