@@ -25,7 +25,7 @@ use utoipa::ToSchema;
         ("status" = Option<DeviceStatus>, Query, description="Microdevice Status Code"),
         ("include_topics" = Option<bool>, Query, description="Include Topics", example=true),
         ("include_description" = Option<bool>, Query, description="Include Description", example=true),
-        ("include_cluster_uuid" = Option<bool>, Query, description="Include Cluster UUID", example=true),
+        ("include_cluster_id" = Option<bool>, Query, description="Include Cluster ID", example=true),
     ),
     responses(
         (status = 200),
@@ -45,7 +45,23 @@ pub async fn get_devices(
 ) -> Result<Json<Value>> {
     Ok(axum::Json(
         (serde_json::to_value(
-            MicrodeviceBMC::get_microdevice(&mm, &ctx, cluster_uuid, params).await?,
+            MicrodeviceBMC::get_microdevice(
+                &mm,
+                &ctx,
+                cluster_uuid,
+                match params.id {
+                    Some(ids) => Some(vec![ids]),
+                    None => None,
+                },
+                match params.name {
+                    Some(name) => Some(vec![name]),
+                    None => None,
+                },
+                params.include_topics,
+                params.include_description,
+                params.include_cluster_id,
+            )
+            .await?,
         ))
         .unwrap(),
     ))

@@ -8,6 +8,7 @@ pub enum ErrorKind {
     DatabaseError(sea_orm::error::DbErr),
     UuidError(uuid::Error),
     Base64DecodeError(base64::DecodeError),
+    MessageBrokerError(amqprs::error::Error),
     UnauthorizedClusterAccess,
     ClusterNotFound,
     MicrodeviceNotFound,
@@ -30,6 +31,7 @@ impl std::fmt::Display for ErrorKind {
             ErrorKind::UnauthorizedClusterAccess => write!(f, "Unauthorized cluster access"),
             ErrorKind::ClusterNotFound => write!(f, "Cluster not found"),
             ErrorKind::MicrodeviceNotFound => write!(f, "Microdevice not found"),
+            ErrorKind::MessageBrokerError(e) => write!(f, "Message broker error: {}", e),
         }
     }
 }
@@ -75,6 +77,7 @@ impl IntoResponse for Error {
                 ErrorKind::DatabaseError(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
                 ErrorKind::UuidError(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
                 ErrorKind::Base64DecodeError(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorKind::MessageBrokerError(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
                 ErrorKind::UnauthorizedClusterAccess => axum::http::StatusCode::UNAUTHORIZED,
                 ErrorKind::ClusterNotFound => axum::http::StatusCode::NOT_FOUND,
                 ErrorKind::MicrodeviceNotFound => axum::http::StatusCode::NOT_FOUND,

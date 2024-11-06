@@ -2,18 +2,19 @@
 #[warn(clippy::perf)]
 #[warn(clippy::style)]
 mod error;
-pub mod actions;    
 use std::str::FromStr;
 
+use axum_jrpc::error::JsonRpcError;
 #[allow(unused_imports)]
 use error::{Error, Result};
+use serde::Deserialize;
 use crate::context::Ctx;
+use crate::model::microdevice::{MicrodeviceBaseModelController as MicrodeviceBMC, MicrodeviceId};
 use crate::model::ModelManager;
 use axum::extract::{Extension, Json as ExtractJson, Path, State};
 use axum::Json;
 use axum_jrpc::{Id, JrpcResult, JsonRpcRequest, JsonRpcResponse};
 use serde_json::Value;
-use actions::MicrodeviceActions;
 
 // Struct to define an example JSON-RPC request for the API documentation
 #[derive(utoipa::ToSchema)]
@@ -24,7 +25,7 @@ pub struct JrpcExample {
     #[schema(example = "<id>")]
     id: String,
     #[schema(example = "<method>")]
-    method: MicrodeviceActions,
+    method: String,
     params: Vec<String>,
 }
 
@@ -32,7 +33,7 @@ pub struct JrpcExample {
 #[derive(Debug, Clone)]
 enum RequestProcessingState {
     Error(JrpcResult),
-    Parsed((Id, MicrodeviceActions, Value)),
+    Parsed((Id, String, Value)),
 }
 
 // Helper method to unwrap RequestProcessingState::Error variant, returns the JrpcResult
@@ -140,14 +141,7 @@ async fn process_batch_requests(
 fn parse_request(req: &Value) -> RequestProcessingState {
     match serde_json::from_value::<JsonRpcRequest>(req.clone()) {
         Ok(r) => {
-            let action = match MicrodeviceActions::from_str(&r.method.to_lowercase()) {
-                Ok(a) => a,
-                Err(_) => return RequestProcessingState::Error(Err(JsonRpcResponse::error(
-                    r.id,
-                    Error::InvalidMethod(format!("method `{}` is not a valid action", r.method)).into(),
-                ))),
-            };
-            RequestProcessingState::Parsed((r.id, action, r.params))
+            RequestProcessingState::Parsed((r.id, r.method, r.params))
         },
         Err(e) => RequestProcessingState::Error(Err(JsonRpcResponse::error(
             axum_jrpc::Id::None(()),
@@ -161,7 +155,53 @@ pub async fn execute_helper(
     model_manager: &ModelManager,
     ctx: &Ctx,
     cluster_id: &String,
-    (id, action, params): (Id, MicrodeviceActions, Value),
+    (id, action, params): (Id, String, Value),
 ) -> JrpcResult {
-    action.execute(model_manager, ctx, cluster_id, id, params).await 
+
+    let parsed_params: MicrodeviceActionParams = match serde_json::from_value(params) {
+        Ok(p) => p,
+        Err(e) => return Err(JsonRpcResponse::error(
+            id,
+            Error::SerdeJson(e).into(),
+        )),
+    };
+
+    if Some(true) == parsed_params.cluster_wide {
+        return JrpcResult::Ok(JsonRpcResponse::success(id, "cluster wide action is not supported"));
+    }
+
+    if let Some(microdevice_id) = parsed_params.microdevice_id {
+
+        match microdevice_id {
+            MicrodeviceActionParamsId::Single(md_id) => {
+                match MicrodeviceBMC::trigger_action(model_manager, ctx, cluster_id.to_owned(), std::iter::once(md_id), action).await {
+                    Ok(v) => return JrpcResult::Ok(JsonRpcResponse::success(id, v)),
+                    Err(e) => return JrpcResult::Ok(JsonRpcResponse::error(id,  JsonRpcError::new(axum_jrpc::error::JsonRpcErrorReason::InternalError, e.to_string(), Value::default()
+                    ))),
+                }    
+            },
+            MicrodeviceActionParamsId::Multiple(ids) => {
+                match MicrodeviceBMC::trigger_action(model_manager, ctx, cluster_id.to_owned(), ids, action).await {
+                    Ok(v) => return JrpcResult::Ok(JsonRpcResponse::success(id, v)),
+                    Err(e) => return JrpcResult::Ok(JsonRpcResponse::error(id,  JsonRpcError::new(axum_jrpc::error::JsonRpcErrorReason::InternalError, e.to_string(), Value::default()
+                    ))),
+                }
+            },
+        }        
+    }
+
+    JrpcResult::Ok(JsonRpcResponse::success(id, "microdevice_id is required"))
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum MicrodeviceActionParamsId {
+    Single(MicrodeviceId),
+    Multiple(Vec<MicrodeviceId>),
+}
+
+#[derive(Deserialize)]
+struct MicrodeviceActionParams {
+    cluster_wide: Option<bool>,
+    microdevice_id: Option<MicrodeviceActionParamsId>,
 }

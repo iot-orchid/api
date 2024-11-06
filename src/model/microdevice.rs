@@ -9,6 +9,37 @@ use sea_orm::{entity::prelude::*, QueryTrait};
 use sea_orm::{EntityTrait, QuerySelect, SelectColumns};
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum MicrodeviceId {
+    Id(i32),
+    Name(String),
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum MicrodeviceAction {
+    Start,
+    Stop,
+    Restart,
+    Reset,
+    PowerOn,
+    PowerOff,
+    UserDefined(String),
+}
+
+impl From<i32> for MicrodeviceId {
+    fn from(id: i32) -> Self {
+        Self::Id(id)
+    }
+}
+
+impl From<String> for MicrodeviceId {
+    fn from(name: String) -> Self {
+        Self::Name(name)
+    }
+}
+
 #[derive(Deserialize, Debug, Clone, utoipa::ToSchema)]
 pub struct MicrodeviceCreate {
     #[schema(example = "sensor-1")]
@@ -33,7 +64,7 @@ pub struct MicrodeviceTopic {
     pub name: String,
 }
 
-#[derive(Serialize, utoipa::ToSchema, sea_orm::FromQueryResult)]
+#[derive(Clone, Serialize, utoipa::ToSchema, sea_orm::FromQueryResult)]
 pub struct MicrodeviceRecord {
     #[serde(skip_serializing_if = "Option::is_none")]
     cluster_id: Option<Uuid>,
@@ -50,28 +81,15 @@ pub struct MicrodeviceRecord {
 #[allow(dead_code)]
 #[derive(Deserialize, utoipa::ToSchema, Debug)]
 pub struct MicrodeviceGetParams {
-    name: Option<String>,
-    id: Option<i32>,
-    status: Option<DeviceStatus>,
+    pub name: Option<String>,
+    pub id: Option<i32>,
+    // status: Option<DeviceStatus>,
     #[schema(example = true)]
-    include_topics: Option<bool>,
+    pub include_topics: Option<bool>,
     #[schema(example = true)]
-    include_description: Option<bool>,
+    pub include_description: Option<bool>,
     #[schema(example = true)]
-    include_cluster_uuid: Option<bool>,
-}
-
-impl MicrodeviceGetParams {
-    pub fn for_action(microdevice_id: i32) -> Self {
-        Self {
-            name: None,
-            id: Some(microdevice_id),
-            status: None,
-            include_topics: Some(true),
-            include_description: Some(false),
-            include_cluster_uuid: Some(true),
-        }
-    }
+    pub include_cluster_id: Option<bool>,
 }
 
 #[derive(Deserialize, utoipa::ToSchema, Debug)]
@@ -101,21 +119,58 @@ pub enum DeviceStatus {
 }
 pub struct MicrodeviceBaseModelController {}
 
+#[derive(Serialize, utoipa::ToSchema)]
+pub struct MicrodeviceActionResponse {
+    microdevice_id: MicrodeviceId,
+    status: String,
+    message: String,
+    payload: serde_json::Value,
+}
+
+impl From<String> for MicrodeviceAction {
+    fn from(action: String) -> Self {
+        match action.as_str() {
+            "start" => Self::Start,
+            "stop" => Self::Stop,
+            "restart" => Self::Restart,
+            "reset" => Self::Reset,
+            "power-on" => Self::PowerOn,
+            "power-off" => Self::PowerOff,
+            _ => Self::UserDefined(action),
+        }
+    }
+}
+
 impl MicrodeviceBaseModelController {
-    pub async fn execute_action(
+    pub async fn trigger_action<I, A>(
         mm: &ModelManager,
         ctx: &Ctx,
-        cluster_uuid: String,
-        microdevice_id: i32,
-    ) -> Result<()> {
+        cluster_id: String,
+        microdevice_ids: I,
+        action: A,
+    ) -> Result<Vec<MicrodeviceActionResponse>>
+    where
+        I: IntoIterator + Clone,
+        I::IntoIter: ExactSizeIterator,
+        I::Item: Into<MicrodeviceId>,
+        A: Into<MicrodeviceAction> + Clone + Serialize,
+    {
+        let action: MicrodeviceAction = action.clone().into();
+
+        // Fetch the microdevices
         let microdevice_data = Self::get_microdevice(
             mm,
             ctx,
-            cluster_uuid,
-            MicrodeviceGetParams::for_action(microdevice_id),
+            cluster_id,
+            Some(microdevice_ids.clone()),
+            None::<Vec<String>>,
+            Some(true),
+            None,
+            Some(true),
         )
         .await?;
 
+        // No microdevices found
         if microdevice_data.is_empty() {
             return Err(Error {
                 kind: super::error::ErrorKind::MicrodeviceNotFound,
@@ -123,15 +178,131 @@ impl MicrodeviceBaseModelController {
             });
         }
 
-        todo!()
+        // Some microdevices were not found
+        if microdevice_data.len() != microdevice_ids.into_iter().len() {
+            return Err(Error {
+                kind: super::error::ErrorKind::MicrodeviceNotFound,
+                message: "failed to execute action because some microdevices were not found"
+                    .to_string(),
+            });
+        }
+
+        // Partition the microdevices into supported and not supported
+        let (to_process, mut not_supported) =
+            Self::partition_supported_microdevices(&microdevice_data, &action);
+
+        // Collect the futures
+        let fut: Vec<_> = to_process
+            .into_iter()
+            .map(|rec| Self::transmit_action(rec.clone(), action.clone()))
+            .collect();
+
+        // Execute the futures
+        let action_reponses: Result<Vec<MicrodeviceActionResponse>> =
+            futures::future::join_all(fut).await.into_iter().collect();
+
+        // Combine the not supported and supported responses
+        not_supported.extend(action_reponses?);
+
+        Ok(not_supported)
     }
 
-    pub async fn get_microdevice(
+    fn partition_supported_microdevices(
+        microdevices: &Vec<MicrodeviceRecord>,
+        action: &MicrodeviceAction,
+    ) -> (Vec<MicrodeviceRecord>, Vec<MicrodeviceActionResponse>) {
+        let mut not_supported: Vec<MicrodeviceActionResponse> = vec![];
+        let mut to_process: Vec<MicrodeviceRecord> = vec![];
+
+        for microdevice in microdevices {
+            if Self::is_action_supported(microdevice, action) {
+                to_process.push(microdevice.clone());
+            } else {
+                not_supported.push(Self::unsupported_action_response(microdevice, action));
+            }
+        }
+
+        (to_process, not_supported)
+    }
+
+    fn is_action_supported(rec: &MicrodeviceRecord, action: &MicrodeviceAction) -> bool {
+        // Check if the user-defined action is supported by the microdevice
+        if let MicrodeviceAction::UserDefined(action) = action {
+            if let Some(topics) = &rec.topics {
+                if let Some(topic_array) = topics.as_array() {
+                    return topic_array
+                        .iter()
+                        .any(|v| v.as_str().unwrap_or_default().to_string() == *action);
+                }
+            }
+
+            // If the microdevice has no topics or the topics are malformed
+            return false;
+        }
+
+        // Execute the Default actions
+        true
+    }
+
+    fn unsupported_action_response(
+        microdevice: &MicrodeviceRecord,
+        action: &MicrodeviceAction,
+    ) -> MicrodeviceActionResponse {
+        let message = match action {
+            MicrodeviceAction::UserDefined(action_name) => {
+                if microdevice.topics.is_none() {
+                    format!(
+                        "microdevice `{}` has no user-defined topics",
+                        microdevice.name.clone().unwrap()
+                    )
+                } else {
+                    format!(
+                        "microdevice `{}` does not support action `{}`",
+                        microdevice.name.clone().unwrap(),
+                        action_name
+                    )
+                }
+            },
+            _ => panic!("It should not be possible to reach this point as the default actions are always supported."),
+        };
+
+        MicrodeviceActionResponse {
+            microdevice_id: microdevice.id.unwrap().into(),
+            status: "error".to_string(),
+            message,
+            payload: serde_json::Value::Null,
+        }
+    }
+
+    async fn transmit_action(
+        microdevice: MicrodeviceRecord,
+        action: MicrodeviceAction,
+    ) -> Result<MicrodeviceActionResponse> {
+        Ok(MicrodeviceActionResponse {
+            microdevice_id: microdevice.id.unwrap().into(),
+            status: "success".to_string(),
+            message: format!("action `{:?}` executed successfully", action),
+            payload: serde_json::Value::Null,
+        })
+    }
+
+    pub async fn get_microdevice<I, S>(
         mm: &ModelManager,
         ctx: &Ctx,
         cluster_uuid: String,
-        params: MicrodeviceGetParams,
-    ) -> Result<Vec<MicrodeviceRecord>> {
+        microdevice_id: Option<I>,
+        micodevice_name: Option<S>,
+        inlcude_topics: Option<bool>,
+        include_description: Option<bool>,
+        include_cluster_id: Option<bool>,
+    ) -> Result<Vec<MicrodeviceRecord>>
+    where
+        I: IntoIterator,
+        I::IntoIter: ExactSizeIterator,
+        I::Item: Into<MicrodeviceId>,
+        S: IntoIterator,
+        S::Item: Into<String>,
+    {
         ClusterBMC::exists(mm, ctx, cluster_uuid.clone()).await?;
 
         let microdevice: Vec<MicrodeviceRecord> = microdevice::Entity::find()
@@ -139,27 +310,37 @@ impl MicrodeviceBaseModelController {
             .select_column(microdevice::Column::Id)
             .select_column(microdevice::Column::Name)
             .filter(microdevice::Column::ClusterId.eq(parse_cluster_id(&cluster_uuid)?))
-            .apply_if(params.id, |q, id| q.filter(microdevice::Column::Id.eq(id)))
-            .apply_if(params.name, |q, name| {
-                q.filter(microdevice::Column::Name.eq(name))
+            .apply_if(microdevice_id, |q, v| {
+                q.filter(
+                    microdevice::Column::Id.is_in(v.into_iter().map(|v| match v.into() {
+                        MicrodeviceId::Id(id) => id,
+                        MicrodeviceId::Name(_) => todo!(),
+                    })),
+                )
             })
-            .apply_if(params.include_description, |q, include_description| {
-                if include_description {
-                    return q.select_column(microdevice::Column::Description);
-                }
-                q
+            .apply_if(micodevice_name, |q, v| {
+                q.filter(microdevice::Column::Name.is_in(v.into_iter().map(|v| v.into())))
             })
-            .apply_if(params.include_topics, |q, include_topics| {
-                if include_topics {
-                    return q.select_column(microdevice::Column::Topics);
+            .apply_if(inlcude_topics, |q, v| {
+                if v {
+                    q.select_column(microdevice::Column::Topics)
+                } else {
+                    q
                 }
-                q
             })
-            .apply_if(params.include_cluster_uuid, |q, include_cluster_uuid| {
-                if include_cluster_uuid {
-                    return q.select_column(microdevice::Column::ClusterId);
+            .apply_if(include_description, |q, v| {
+                if v {
+                    q.select_column(microdevice::Column::Description)
+                } else {
+                    q
                 }
-                q
+            })
+            .apply_if(include_cluster_id, |q, v| {
+                if v {
+                    q.select_column(microdevice::Column::ClusterId)
+                } else {
+                    q
+                }
             })
             .into_model()
             .all(&mm.db)

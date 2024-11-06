@@ -35,7 +35,6 @@ use model::ModelManager;
             web::session::UserCredentials,
             web::session::LoginSuccess,
             web::rpc::JrpcExample,
-            web::rpc::actions::MicrodeviceActions,
         )
     ),
     tags(
@@ -64,7 +63,7 @@ impl Modify for SecurityAddon {
 
 #[tokio::main]
 async fn main() {
-    let model_manager = ModelManager::new();
+    let model_manager = ModelManager::new().await;
 
     let app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
