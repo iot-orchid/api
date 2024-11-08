@@ -21,7 +21,7 @@ impl Default for AmpqConfig {
             port: 5672,
             user: "guest".to_string(),
             password: "guest".to_string(),
-            mqtt_gateway_queue_name: "mqtt-gatway-wq".to_string(),
+            mqtt_gateway_queue_name: "mqtt-gateway-wq".to_string(),
             timeout: 10,
         }
     }

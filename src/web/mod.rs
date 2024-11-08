@@ -55,5 +55,6 @@ pub fn app(model_manager: ModelManager) -> Router {
                     "authorization".parse().unwrap(),
                 ]),
         )
+        .layer(tower_http::trace::TraceLayer::new_for_http())
         .with_state(model_manager)
 }

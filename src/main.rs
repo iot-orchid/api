@@ -1,4 +1,6 @@
 use axum::Router;
+use tracing::instrument::WithSubscriber;
+use tracing_subscriber::EnvFilter;
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::{Modify, OpenApi};
 use utoipa_swagger_ui::SwaggerUi;
@@ -63,6 +65,11 @@ impl Modify for SecurityAddon {
 
 #[tokio::main]
 async fn main() {
+
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
+
     let model_manager = ModelManager::new().await;
 
     let app = Router::new()

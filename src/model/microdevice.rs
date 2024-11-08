@@ -2,16 +2,12 @@ use super::common::{parse_cluster_id, parse_microdevice_id};
 #[allow(unused_imports)]
 use super::error::{Error, Result};
 use super::{cluster::ClusterBaseModelController as ClusterBMC, ModelManager};
-use crate::config;
 use crate::context::Ctx;
-use amqprs::channel::{BasicPublishArguments, QueueDeclareArguments};
-use amqprs::BasicProperties;
 use entity::microdevice;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{entity::prelude::*, QueryTrait};
 use sea_orm::{EntityTrait, QuerySelect, SelectColumns};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(untagged)]

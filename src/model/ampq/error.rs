@@ -6,7 +6,10 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     QueueDeclareError(amqprs::error::Error),
     ConnectionError(amqprs::error::Error),
+    CreateChannelError(amqprs::error::Error),
     ChannelError(amqprs::error::Error),
+    PublishError(amqprs::error::Error),
+    ConsumerDeclareError(amqprs::error::Error),
     CloseConsumerError(amqprs::error::Error),
     SerdeError(serde_json::Error),
     CommunicationError(std::sync::mpsc::RecvError),
@@ -27,6 +30,9 @@ impl std::fmt::Display for Error {
             Error::CommunicationError(e) => write!(f, "Communication error: {}", e),
             Error::CloseConsumerError(e) => write!(f, "Close consumer error: {}", e),
             Error::FailedToDeclareQueue => write!(f, "Failed to declare queue"),
+            Error::CreateChannelError(e) => write!(f, "Create channel error: {}", e),
+            Error::ConsumerDeclareError(e) => write!(f, "Consumer declare error: {}", e),
+            Error::PublishError(e) => write!(f, "Publish error: {}", e),
         }
     }
 }
