@@ -12,6 +12,7 @@ pub enum ErrorKind {
     UuidError(uuid::Error),
     Base64DecodeError(base64::DecodeError),
     MessageBrokerError(amqprs::error::Error),
+    SerdeError(serde_json::Error),
     UnauthorizedClusterAccess,
     ClusterNotFound,
     MicrodeviceNotFound,
@@ -36,6 +37,7 @@ impl std::fmt::Display for ErrorKind {
             ErrorKind::MicrodeviceNotFound => write!(f, "Microdevice not found"),
             ErrorKind::MessageBrokerError(e) => write!(f, "Message broker error: {}", e),
             ErrorKind::AmpqError(e) => write!(f, "Ampq error: {}", e),
+            ErrorKind::SerdeError(e) => write!(f, "Serde error: {}", e),
         }
     }
 }
@@ -84,6 +86,16 @@ impl From<ampq::error::Error> for Error {
     }
 }
 
+impl From<serde_json::Error> for Error {
+    fn from(e: serde_json::Error) -> Self {
+        let msg = e.to_string();
+        Error {
+            kind: ErrorKind::SerdeError(e),
+            message: msg,
+        }
+    }
+}
+
 impl IntoResponse for Error {
     fn into_response(self) -> axum::http::Response<axum::body::Body> {
         axum::http::Response::builder()
@@ -96,6 +108,7 @@ impl IntoResponse for Error {
                 ErrorKind::ClusterNotFound => axum::http::StatusCode::NOT_FOUND,
                 ErrorKind::MicrodeviceNotFound => axum::http::StatusCode::NOT_FOUND,
                 ErrorKind::AmpqError(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorKind::SerdeError(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
             })
             .body(self.message.into())
             .unwrap()

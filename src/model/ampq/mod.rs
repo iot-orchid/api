@@ -4,7 +4,6 @@ use amqprs::{
     channel::{
         BasicCancelArguments, BasicConsumeArguments, BasicPublishArguments, QueueDeclareArguments,
     },
-    consumer::{self, DefaultConsumer},
     BasicProperties,
 };
 #[allow(unused_imports)]

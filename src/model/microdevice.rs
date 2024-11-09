@@ -25,6 +25,7 @@ pub enum MicrodeviceAction {
     Reset,
     PowerOn,
     PowerOff,
+    #[serde(untagged)]
     UserDefined(String),
 }
 
@@ -127,6 +128,15 @@ pub struct MicrodeviceActionResponse {
     payload: serde_json::Value,
 }
 
+
+#[derive(Serialize)]
+pub struct MicrodeviceActionMessage {
+    cluster_id: String,
+    microdevice_id: MicrodeviceId,
+    action: MicrodeviceAction,
+    payload: serde_json::Value,
+}
+
 impl From<String> for MicrodeviceAction {
     fn from(action: String) -> Self {
         match action.as_str() {
@@ -196,6 +206,7 @@ impl MicrodeviceBaseModelController {
         let fut: Vec<_> = to_process
             .into_iter()
             .map(|rec| {
+
                 Self::transmit_action(mm, rec.clone(), action.clone(), payload.clone())
             })
             .collect();
@@ -283,12 +294,18 @@ impl MicrodeviceBaseModelController {
         action: MicrodeviceAction,
         payload: serde_json::Value,
     ) -> Result<MicrodeviceActionResponse> {
+        // Create the action message
+        let action_message = MicrodeviceActionMessage {
+            cluster_id: microdevice.cluster_id.unwrap().to_string(),
+            microdevice_id: microdevice.id.unwrap().into(),
+            action,
+            payload,
+        };
 
+        // Serilize the action message
+        let action_payload = serde_json::to_value(action_message)?;
         
-        let res = mm.ampq_bridge.transmit_action(payload).await?;
-
-        // Parse the result to see if the action was successful
-        // TODO
+        let res = mm.ampq_bridge.transmit_action(action_payload).await?;
 
         Ok(MicrodeviceActionResponse {
             microdevice_id: microdevice.id.unwrap().into(),

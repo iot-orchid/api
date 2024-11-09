@@ -1,5 +1,4 @@
 use axum::Router;
-use tracing::instrument::WithSubscriber;
 use tracing_subscriber::EnvFilter;
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::{Modify, OpenApi};
