@@ -7,6 +7,7 @@ pub mod error;
 pub mod microdevice;
 #[allow(unused_imports)]
 use error::{Error, Result};
+use tracing::{info, debug, error};
 
 #[derive(Clone)]
 pub struct ModelManager {
@@ -20,10 +21,11 @@ impl ModelManager {
 
         let sea_orm_db = match block_on(fut) {
             Ok(db) => {
-                println!("Connected to database");
+                info!("Connected to database: {}", config::CONFIG.db_url());
                 db
             }
             Err(err) => {
+                error!("Error connecting to database: {}", err);
                 panic!("Error connecting to database: {}", err);
             }
         };

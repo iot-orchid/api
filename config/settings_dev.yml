@@ -23,6 +23,8 @@ ampq:
   user: guest
   password: guest
   mqtt_gateway_queue_name: mqtt-gateway-wq
-  timeout: 10
+  telemetry_queue_name: telemetry-wq
+  registrar_queue_name: registrar-wq
+  timeout: 120
 port: 3001
 address: 0.0.0.0

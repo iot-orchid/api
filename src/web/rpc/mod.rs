@@ -2,8 +2,6 @@
 #[warn(clippy::perf)]
 #[warn(clippy::style)]
 mod error;
-use std::str::FromStr;
-
 use axum_jrpc::error::JsonRpcError;
 #[allow(unused_imports)]
 use error::{Error, Result};

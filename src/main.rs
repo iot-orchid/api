@@ -6,6 +6,7 @@ use utoipa_swagger_ui::SwaggerUi;
 mod auth;
 mod config;
 mod context;
+mod events;
 mod model;
 mod web;
 use model::ModelManager;
@@ -64,16 +65,23 @@ impl Modify for SecurityAddon {
 
 #[tokio::main]
 async fn main() {
-
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();
 
     let model_manager = ModelManager::new().await;
+    let mm_api_ref = model_manager.clone();
+    let mm_event_ref = model_manager.clone();
+
+    let event_manager = events::EventManager::new(mm_event_ref);
+
+    tokio::spawn(async move {
+        let _ = event_manager.start().await;
+    });
 
     let app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
-        .nest("/api/v1", web::app(model_manager));
+        .nest("/api/v1", web::app(mm_api_ref));
 
     if let Ok(listener) = tokio::net::TcpListener::bind(format!(
         "{}:{}",

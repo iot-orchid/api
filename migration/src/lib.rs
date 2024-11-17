@@ -7,6 +7,7 @@ mod m20240831_050622_user_cluster_table;
 mod m20240910_224132_add_topics_to_microdevices;
 mod m20241007_224722_seed_tables;
 mod m20241009_032952_make_description_nullable;
+mod m20241116_234725_create_telemetry_table;
 
 pub struct Migrator;
 
@@ -21,6 +22,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240910_224132_add_topics_to_microdevices::Migration),
             Box::new(m20241007_224722_seed_tables::Migration),
             Box::new(m20241009_032952_make_description_nullable::Migration),
+            Box::new(m20241116_234725_create_telemetry_table::Migration),
         ]
     }
 }

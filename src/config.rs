@@ -22,6 +22,8 @@ impl Default for AmpqConfig {
             user: "guest".to_string(),
             password: "guest".to_string(),
             mqtt_gateway_queue_name: "mqtt-gateway-wq".to_string(),
+            telemetry_queue_name: "telemetry-wq".to_string(),
+            registrar_queue_name: "registrar-wq".to_string(),
             timeout: 10,
         }
     }
@@ -90,12 +92,14 @@ pub struct ConfigStruct {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct AmpqConfig{
+pub struct AmpqConfig {
     pub host: String,
     pub port: u16,
     pub user: String,
     pub password: String,
     pub mqtt_gateway_queue_name: String,
+    pub telemetry_queue_name: String,
+    pub registrar_queue_name: String,
     pub timeout: u64,
 }
 
