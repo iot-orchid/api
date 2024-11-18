@@ -65,7 +65,7 @@ pub struct MicrodeviceTopic {
     pub name: String,
 }
 
-#[derive(Clone, Serialize, utoipa::ToSchema, sea_orm::FromQueryResult)]
+#[derive(Clone, Serialize, utoipa::ToSchema, sea_orm::FromQueryResult, Debug)]
 pub struct MicrodeviceRecord {
     #[serde(skip_serializing_if = "Option::is_none")]
     cluster_id: Option<Uuid>,
@@ -128,7 +128,6 @@ pub struct MicrodeviceActionResponse {
     payload: serde_json::Value,
 }
 
-
 #[derive(Serialize)]
 pub struct MicrodeviceActionMessage {
     cluster_id: String,
@@ -169,7 +168,7 @@ impl MicrodeviceBaseModelController {
         let action: MicrodeviceAction = action.clone().into();
 
         // Fetch the microdevices
-        let microdevice_data = Self::get_microdevice(
+        let microdevice_data = Self::get_microdevice_from_cluster(
             mm,
             ctx,
             cluster_id,
@@ -205,10 +204,7 @@ impl MicrodeviceBaseModelController {
         // Collect the futures
         let fut: Vec<_> = to_process
             .into_iter()
-            .map(|rec| {
-
-                Self::transmit_action(mm, rec.clone(), action.clone(), payload.clone())
-            })
+            .map(|rec| Self::transmit_action(mm, rec.clone(), action.clone(), payload.clone()))
             .collect();
 
         // Execute the futures
@@ -304,7 +300,7 @@ impl MicrodeviceBaseModelController {
 
         // Serilize the action message
         let action_payload = serde_json::to_value(action_message)?;
-        
+
         let res = mm.ampq_bridge.transmit_action(action_payload).await?;
 
         Ok(MicrodeviceActionResponse {
@@ -315,7 +311,7 @@ impl MicrodeviceBaseModelController {
         })
     }
 
-    pub async fn get_microdevice<I, S>(
+    pub async fn get_microdevice_from_cluster<I, S>(
         mm: &ModelManager,
         ctx: &Ctx,
         cluster_uuid: String,
@@ -412,7 +408,7 @@ impl MicrodeviceBaseModelController {
     }
 
     #[allow(unused_variables)]
-    pub async fn delete_microdevice(
+    pub async fn delete_microdevice_from_cluster(
         mm: &ModelManager,
         ctx: &Ctx,
         cluster_uuid: String,
@@ -445,7 +441,7 @@ impl MicrodeviceBaseModelController {
     }
 
     #[allow(unused_variables)]
-    pub async fn update_microdevice(
+    pub async fn update_microdevice_in_cluster(
         mm: &ModelManager,
         ctx: &Ctx,
         cluster_uuid: String,
@@ -496,5 +492,38 @@ impl MicrodeviceBaseModelController {
                 })
             }
         }
+    }
+
+    pub async fn get_microdevice(
+        ctx: &Ctx,
+        mm: &ModelManager,
+    ) -> Result<Option<MicrodeviceRecord>> {
+        let microdevice_id = match ctx.get_microdevice_ids() {
+            Some(v) => v,
+            None => {
+                return Err(Error {
+                    kind: super::error::ErrorKind::InvalidContext,
+                    message: "expected microdevice context".to_string(),
+                })
+            }
+        };
+
+        // convet microdevice id to integer
+        let microdevice_id = match microdevice_id.0.parse::<i32>() {
+            Ok(v) => v,
+            Err(_) => {
+                return Err(Error {
+                    kind: super::error::ErrorKind::InvalidContext,
+                    message: "invalid context".to_string(),
+                })
+            }
+        };
+
+        let rec: Option<MicrodeviceRecord> = microdevice::Entity::find_by_id(microdevice_id)
+            .into_model()
+            .one(&mm.db)
+            .await?;
+
+        Ok(rec)
     }
 }

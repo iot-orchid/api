@@ -19,7 +19,7 @@ pub struct MessageBroker {
 pub struct ConsumerHandle {
     pub tag: String,
     pub rx: tokio::sync::mpsc::UnboundedReceiver<amqprs::channel::ConsumerMessage>,
-    _channel: amqprs::channel::Channel,
+    pub ch: amqprs::channel::Channel,
 }
 
 impl MessageBroker {
@@ -98,12 +98,15 @@ impl MessageBroker {
                     .await
                     .map_err(|e| Error::ConsumerDeclareError(e))?;
 
-                debug!("Telemetry consumer created successfully with tag: {}", consumer_tag);
+                debug!(
+                    "Telemetry consumer created successfully with tag: {}",
+                    consumer_tag
+                );
 
                 Ok(ConsumerHandle {
                     tag: consumer_tag,
                     rx: messages_rx,
-                    _channel: chan,
+                    ch: chan,
                 })
             }
             Ok(None) => {
@@ -140,12 +143,15 @@ impl MessageBroker {
                     .await
                     .map_err(|e| Error::ConsumerDeclareError(e))?;
 
-                debug!("Registrar consumer created successfully with tag: {}", consumer_tag);
+                debug!(
+                    "Registrar consumer created successfully with tag: {}",
+                    consumer_tag
+                );
 
                 Ok(ConsumerHandle {
                     tag: consumer_tag,
                     rx: messages_rx,
-                    _channel: chan,
+                    ch: chan,
                 })
             }
             Ok(None) => {

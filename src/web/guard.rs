@@ -28,7 +28,7 @@ pub async fn jwt_guard(
         }
     };
 
-    let ctx = Ctx { uuid: claims.sub };
+    let ctx = Ctx::new_user(claims.sub);
 
     match request.extensions_mut().insert(ctx) {
         Some(_) => {

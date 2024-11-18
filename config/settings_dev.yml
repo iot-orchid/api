@@ -17,6 +17,10 @@ jwt:
   access_expires_in: 86400
   refresh_expires_in: 604800
   issuer: iot-orchid
+  microdevice:
+    secret: mysecret
+    expires_in: 2700
+    issuer: iot-orchid
 ampq:
   host: localhost
   port: 5672

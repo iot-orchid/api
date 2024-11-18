@@ -29,6 +29,16 @@ impl Default for AmpqConfig {
     }
 }
 
+impl Default for MicrodeviceJwtConfig {
+    fn default() -> Self {
+        MicrodeviceJwtConfig {
+            secret: "microdevice_secret".to_string(),
+            expires_in: 60 * 60 * 24,
+            issuer: "microdevice_issuer".to_string(),
+        }
+    }
+}
+
 impl Default for JwtConfig {
     fn default() -> Self {
         JwtConfig {
@@ -36,6 +46,7 @@ impl Default for JwtConfig {
             access_expires_in: 60 * 60 * 5,
             refresh_expires_in: 60 * 60 * 24 * 7,
             issuer: "localhost".to_string(),
+            microdevice: MicrodeviceJwtConfig::default(),
         }
     }
 }
@@ -57,7 +68,6 @@ impl ConfigStruct {
     fn new() -> Result<Self, ConfigError> {
         let builder =
             Config::builder().add_source(File::new("config/settings_dev", FileFormat::Yaml));
-
         let config = builder.build()?;
 
         Ok(config.try_deserialize()?)
@@ -108,6 +118,14 @@ pub struct JwtConfig {
     pub secret: String,
     pub access_expires_in: u64,
     pub refresh_expires_in: u64,
+    pub issuer: String,
+    pub microdevice: MicrodeviceJwtConfig,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MicrodeviceJwtConfig {
+    pub secret: String,
+    pub expires_in: u64,
     pub issuer: String,
 }
 

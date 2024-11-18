@@ -16,6 +16,7 @@ pub enum ErrorKind {
     UnauthorizedClusterAccess,
     ClusterNotFound,
     MicrodeviceNotFound,
+    InvalidContext,
 }
 
 #[derive(Debug)]
@@ -38,6 +39,7 @@ impl std::fmt::Display for ErrorKind {
             ErrorKind::MessageBrokerError(e) => write!(f, "Message broker error: {}", e),
             ErrorKind::AmpqError(e) => write!(f, "Ampq error: {}", e),
             ErrorKind::SerdeError(e) => write!(f, "Serde error: {}", e),
+            ErrorKind::InvalidContext => write!(f, "Invalid context encountered"),
         }
     }
 }
@@ -109,6 +111,7 @@ impl IntoResponse for Error {
                 ErrorKind::MicrodeviceNotFound => axum::http::StatusCode::NOT_FOUND,
                 ErrorKind::AmpqError(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
                 ErrorKind::SerdeError(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                _ => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
             })
             .body(self.message.into())
             .unwrap()

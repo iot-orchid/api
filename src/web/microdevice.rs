@@ -45,7 +45,7 @@ pub async fn get_devices(
 ) -> Result<Json<Value>> {
     Ok(axum::Json(
         (serde_json::to_value(
-            MicrodeviceBMC::get_microdevice(
+            MicrodeviceBMC::get_microdevice_from_cluster(
                 &mm,
                 &ctx,
                 cluster_uuid,
@@ -91,7 +91,7 @@ pub async fn delete_device(
     Path(cluster_uuid): Path<String>,
     Query(params): Query<MicrodeviceDeleteParams>,
 ) -> Result<()> {
-    Ok(MicrodeviceBMC::delete_microdevice(&mm, &ctx, cluster_uuid, params).await?)
+    Ok(MicrodeviceBMC::delete_microdevice_from_cluster(&mm, &ctx, cluster_uuid, params).await?)
 }
 
 #[derive(Serialize, ToSchema)]
@@ -127,7 +127,8 @@ pub async fn update_device(
     ExtractJson(data): Json<MicrodeviceUpdateParams>,
 ) -> Result<Json<MicrodeviceRecord>> {
     Ok(Json(
-        MicrodeviceBMC::update_microdevice(&mm, &ctx, cluster_id, microdevice_id, data).await?,
+        MicrodeviceBMC::update_microdevice_in_cluster(&mm, &ctx, cluster_id, microdevice_id, data)
+            .await?,
     ))
 }
 

@@ -57,13 +57,25 @@ impl Into<ClusterUuid> for Vec<String> {
 }
 
 impl ClusterBaseModelController {
+    fn validate_user_ctx(ctx: &Ctx) -> Result<&str> {
+        if let Ctx::UserCtx { user_id, .. } = ctx {
+            Ok(user_id)
+        } else {
+            Err(Error {
+                kind: super::error::ErrorKind::UnauthorizedClusterAccess,
+                message: "Microdevice context cannot access cluster operations".to_string(),
+            })
+        }
+    }
+
     pub async fn create_cluster(
         mm: &ModelManager,
         ctx: &Ctx,
         cluster: ClusterCreate,
     ) -> Result<ClusterRecord> {
         let new_uuid = uuid::Uuid::new_v4();
-        let ctx_uuid = parse_cluster_id(&ctx.uuid)?;
+        let user_id = Self::validate_user_ctx(ctx)?;
+        let ctx_uuid = parse_cluster_id(&user_id.into())?;
 
         let new_cluster = cluster::ActiveModel {
             id: Set(new_uuid),
@@ -91,7 +103,8 @@ impl ClusterBaseModelController {
         ctx: &Ctx,
         params: &ClusterQuery,
     ) -> Result<Vec<ClusterRecord>> {
-        let ctx_uuid = parse_cluster_id(&ctx.uuid)?;
+        let user_id = Self::validate_user_ctx(ctx)?;
+        let ctx_uuid = parse_cluster_id(&user_id.into())?;
 
         let query_uuid = match &params.uuid {
             Some(uuid) => Some(parse_cluster_id(uuid)?),
@@ -118,7 +131,8 @@ impl ClusterBaseModelController {
     where
         T: Into<ClusterUuid>,
     {
-        let ctx_uuid = parse_cluster_id(&ctx.uuid)?;
+        let user_id = Self::validate_user_ctx(ctx)?;
+        let ctx_uuid = parse_cluster_id(&user_id.into())?;
 
         match cluster_uuid.into() {
             ClusterUuid::Single(uuid) => {
@@ -133,9 +147,9 @@ impl ClusterBaseModelController {
                     return Err(Error {
                         kind: super::error::ErrorKind::ClusterNotFound,
                         message: format!("cluster `{}` not found.", cluster_uuid),
-                    })
+                    });
                 }
-                
+
                 Ok(())
             }
             ClusterUuid::Multiple(uuids) => {
