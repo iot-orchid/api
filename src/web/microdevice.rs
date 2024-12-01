@@ -16,7 +16,7 @@ use utoipa::ToSchema;
 
 #[utoipa::path(
     get,
-    path = "/clusters/{clusterId}/devices",
+    path = "/cluster/{clusterId}/devices",
     tag = "Microdevices",
     params(
         ("clusterId" = String, Path, description="Cluster ID a existing cluster"),
@@ -70,7 +70,7 @@ pub async fn get_devices(
 #[allow(unused_variables)]
 #[utoipa::path(
     delete,
-    path = "/clusters/{clusterId}/devices",
+    path = "/cluster/{clusterId}/devices",
     tag = "Microdevices",
     params(
         ("name" = Option<String>, Query, description="Microdevice Name"),
@@ -106,7 +106,7 @@ pub struct Topic {
 #[allow(unused_variables)]
 #[utoipa::path(
     put,
-    path = "/clusters/{clusterId}/device/{microdeviceId}",
+    path = "/cluster/{clusterId}/device/{microdeviceId}",
     tag = "Microdevices",
     params(
         ("clusterId" = String, Path, description="Cluster ID a existing cluster"),
@@ -134,7 +134,7 @@ pub async fn update_device(
 
 #[utoipa::path(
     post,
-    path = "/clusters/{clusterId}/devices",
+    path = "/cluster/{clusterId}/devices",
     tag = "Microdevices",
     params(
         ("clusterId" = String, Path, description="Cluster ID a existing cluster"),

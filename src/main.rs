@@ -17,6 +17,7 @@ use model::ModelManager;
     paths(
         web::cluster::create,
         web::cluster::get,
+        web::cluster::delete,
         web::microdevice::get_devices,
         web::microdevice::create_device,
         web::microdevice::delete_device,
@@ -29,10 +30,12 @@ use model::ModelManager;
     components(
         schemas (
             model::cluster::ClusterCreate,
+            model::cluster::ClusterDelete,
             model::cluster::ClusterRecord,
             model::microdevice::MicrodeviceCreate,
             model::microdevice::MicrodeviceGetParams,
             model::microdevice::MicrodeviceUpdateParams,
+            model::microdevice::MicrodeviceTopic,
             model::microdevice::DeviceStatus,
             web::session::UserCredentials,
             web::session::LoginSuccess,

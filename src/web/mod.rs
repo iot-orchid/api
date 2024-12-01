@@ -16,21 +16,25 @@ pub fn app(model_manager: ModelManager) -> Router {
     Router::new()
         .route("/clusters", post(cluster::create))
         .route("/clusters", get(cluster::get))
-        .route("/clusters/:clusterId/device/:microdeviceId", put(microdevice::update_device))
+        .route("/clusters", delete(cluster::delete))
         .route(
-            "/clusters/:clusterId/devices/actions",
+            "/cluster/:clusterId/device/:microdeviceId",
+            put(microdevice::update_device),
+        )
+        .route(
+            "/cluster/:clusterId/devices/actions",
             post(rpc::rpc_handler),
         )
         .route(
-            "/clusters/:clusterId/devices",
+            "/cluster/:clusterId/devices",
             get(microdevice::get_devices),
         )
         .route(
-            "/clusters/:clusterId/devices",
+            "/cluster/:clusterId/devices",
             post(microdevice::create_device),
         )
         .route(
-            "/clusters/:clusterId/devices",
+            "/cluster/:clusterId/devices",
             delete(microdevice::delete_device),
         )
         .route("/logout", post(session::logout))
@@ -42,6 +46,7 @@ pub fn app(model_manager: ModelManager) -> Router {
                 .allow_origin(AllowOrigin::list(vec![
                     "http://localhost:3000".parse().unwrap(),
                     "http://localhost:3001".parse().unwrap(),
+                    "http://localhost:5173".parse().unwrap(),
                 ]))
                 .allow_credentials(true)
                 .allow_methods([

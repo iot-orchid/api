@@ -1,6 +1,5 @@
-use amqprs::{
-    channel::{BasicAckArguments, BasicNackArguments, BasicPublishArguments, ConsumerMessage},
-    BasicProperties,
+use amqprs::channel::{
+    BasicAckArguments, BasicNackArguments, BasicPublishArguments, ConsumerMessage,
 };
 use serde::{Deserialize, Serialize};
 use tokio::select;
@@ -122,6 +121,14 @@ impl EventManager {
         }
     }
 
+    pub async fn handle_telemetry(
+        &self,
+        ch: &amqprs::channel::Channel,
+        msg: Option<ConsumerMessage>,
+    ) {
+        debug!("Recived telemetry message")
+    }
+
     pub async fn start(&self) {
         info!("Starting event manager");
 
@@ -161,7 +168,7 @@ impl EventManager {
                 }
 
                 msg = telemetry_consumer.rx.recv() => {
-                    // self.handle_registration(&ch, msg).await
+                    self.handle_telemetry(&telemetry_consumer.ch, msg).await;
                 }
 
                 msg = registrar_consumer.rx.recv() => {

@@ -9,6 +9,7 @@ pub enum Ctx {
     },
 }
 
+#[allow(dead_code)]
 impl Ctx {
     pub fn new_user<S>(uuid: S) -> Ctx
     where

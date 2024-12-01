@@ -3,7 +3,7 @@ use super::error::{Error, Result};
 use super::ModelManager;
 use crate::context::Ctx;
 use base64::{engine::general_purpose::URL_SAFE, Engine as _};
-use entity::cluster;
+use entity::{cluster, user};
 use entity::user_cluster;
 use sea_orm::ActiveValue::Set;
 use sea_orm::EntityTrait;
@@ -19,7 +19,6 @@ pub enum ClusterUuid {
 }
 
 #[derive(Deserialize, utoipa::ToSchema)]
-#[allow(dead_code)]
 pub struct ClusterCreate {
     #[schema(example = "factory-a")]
     name: String,
@@ -27,6 +26,14 @@ pub struct ClusterCreate {
     region: String,
     #[schema(example = "Cluster of sensors in factory-a used for telemetry.")]
     description: Option<String>,
+}
+
+#[derive(Deserialize, utoipa::ToSchema)]
+pub struct ClusterDelete {
+    #[schema(example = "<base64 encoded cluster uuid>")]
+    id: Option<String>,
+    #[schema(example = "<base64 encoded cluster uuid>, <base64 encoded cluster uuid>, ...")]
+    ids: Option<Vec<String>>,
 }
 
 #[derive(Serialize, utoipa::ToSchema)]
@@ -178,6 +185,46 @@ impl ClusterBaseModelController {
                 Ok(())
             }
         }
+    }
+
+    pub async fn delete_cluster(
+        mm: &ModelManager,
+        ctx: &Ctx,
+        cluster: ClusterDelete,
+    ) -> Result<u64> {
+        let user_id = Self::validate_user_ctx(ctx)?;
+        let ctx_uuid = parse_cluster_id(&user_id.into())?;
+
+        let cluster_uuids = match cluster {
+            ClusterDelete {
+                id: Some(uuid),
+                ids: None,
+            } => {
+                vec![parse_cluster_id(&uuid)?]
+            }
+
+            ClusterDelete {
+                id: None,
+                ids: Some(uuids),
+            } => uuids
+                .iter()
+                .map(|uuid| parse_cluster_id(uuid))
+                .collect::<Result<Vec<Uuid>>>()?,
+
+            _ => {
+                return Err(Error {
+                    kind: super::error::ErrorKind::InvalidContext,
+                    message: "Invalid context for cluster deletion".to_string(),
+                });
+            }
+        };
+
+        let res = user_cluster::Entity::delete_many()
+            .filter(user_cluster::Column::UserId.eq(ctx_uuid))
+            .filter(user_cluster::Column::ClusterId.is_in(cluster_uuids))
+            .exec(&mm.db).await?;
+
+        Ok(res.rows_affected)
     }
 
     pub(crate) fn find_clusters_by_user_uuid(user_uuid: Uuid) -> Select<cluster::Entity> {

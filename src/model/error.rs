@@ -15,6 +15,7 @@ pub enum ErrorKind {
     SerdeError(serde_json::Error),
     UnauthorizedClusterAccess,
     ClusterNotFound,
+    
     MicrodeviceNotFound,
     InvalidContext,
 }
