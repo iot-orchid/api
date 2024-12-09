@@ -25,10 +25,7 @@ pub fn app(model_manager: ModelManager) -> Router {
             "/cluster/:clusterId/devices/actions",
             post(rpc::rpc_handler),
         )
-        .route(
-            "/cluster/:clusterId/devices",
-            get(microdevice::get_devices),
-        )
+        .route("/cluster/:clusterId/devices", get(microdevice::get_devices))
         .route(
             "/cluster/:clusterId/devices",
             post(microdevice::create_device),
@@ -47,6 +44,8 @@ pub fn app(model_manager: ModelManager) -> Router {
                     "http://localhost:3000".parse().unwrap(),
                     "http://localhost:3001".parse().unwrap(),
                     "http://localhost:5173".parse().unwrap(),
+                    "https://iot-orchid.app".parse().unwrap(),
+                    "https://www.iot-orchid.app".parse().unwrap(),
                 ]))
                 .allow_credentials(true)
                 .allow_methods([

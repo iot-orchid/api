@@ -16,9 +16,9 @@ pub mod jwt_auth {
     pub const REFRESH_TOKEN_COOKIE_NAME: &str = "iotorchid_refresh_token";
 
     /// Configuration for the cookies
-    const COOKIE_CFG_SAME_SITE: SameSite = SameSite::Lax;
+    const COOKIE_CFG_SAME_SITE: SameSite = SameSite::None;
     const COOKIE_CFG_HTTP_ONLY: bool = true;
-    const COOKIE_CFG_SECURE: bool = false;
+    const COOKIE_CFG_SECURE: bool = true;
     const COOKIE_CFG_PATH: &str = "/";
 
     /// Generates a Cookie containing a JWT access token for the specified subject
